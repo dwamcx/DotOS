@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DotOS</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif}
+/* BOOT */
+#boot{position:fixed;inset:0;background:#0a0a0f;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .8s}
+#boot.out{opacity:0;pointer-events:none}
+.boot-logo-wrap{position:relative;width:110px;height:110px;margin-bottom:32px}
+.boot-arc{position:absolute;inset:0;border-radius:50%;border:2.5px solid transparent;border-top-color:#00d4aa;border-right-color:#6c63ff;animation:bspin 1.8s linear infinite}
+.boot-arc2{position:absolute;inset:10px;border-radius:50%;border:1.5px solid transparent;border-bottom-color:rgba(108,99,255,.35);animation:bspin 2.8s linear infinite reverse}
+@keyframes bspin{to{transform:rotate(360deg)}}
+.boot-dots{position:absolute;inset:20px;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;align-content:center;justify-items:center;padding:4px}
+.boot-dot{width:4px;height:4px;border-radius:50%;background:rgba(108,99,255,.65);animation:dp 1.6s ease-in-out infinite alternate}
+@keyframes dp{from{opacity:.3;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.boot-title{color:#fff;font-size:26px;font-weight:700;margin-bottom:6px}
+.boot-sub{color:rgba(255,255,255,.3);font-size:12px;margin-bottom:28px}
+.boot-status-txt{color:rgba(255,255,255,.4);font-size:12px;margin-bottom:10px;height:18px}
+.boot-bar-wrap{width:240px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.boot-bar{height:100%;width:0;background:linear-gradient(90deg,#6c63ff,#00d4aa);transition:width .12s linear}
+.boot-pct-row{color:rgba(255,255,255,.35);font-size:11px;display:flex;justify-content:space-between;width:240px;margin-bottom:28px}
+.boot-load-btn{background:linear-gradient(90deg,#6c63ff,#7c6fff);border:none;border-radius:30px;padding:12px 40px;color:#fff;font-size:14px;cursor:pointer;font-weight:500;opacity:0;transition:opacity .4s,transform .2s;transform:translateY(8px)}
+.boot-load-btn.show{opacity:1;transform:translateY(0)}
+.boot-load-btn:hover{filter:brightness(1.12)}
+/* LOGIN */
+#login-screen{position:absolute;inset:0;z-index:800;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 30% 40%,#1a1040,#0d0d1a 60%,#0a0812);transition:opacity .5s,transform .5s}
+#login-screen.out{opacity:0;transform:scale(1.04);pointer-events:none}
+.login-card{background:rgba(16,14,32,.94);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:36px 40px;width:340px;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:cardIn .5s cubic-bezier(.16,1,.3,1)}
+@keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:none}}
+.login-header{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px}
+.login-title{color:#fff;font-size:20px;font-weight:600}
+.login-form{display:flex;flex-direction:column;gap:12px}
+.l-input{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.09);border-radius:30px;padding:12px 18px;color:#e8e8f0;font-size:13px;outline:none;transition:border-color .2s;user-select:text}
+.l-input:focus{border-color:rgba(108,99,255,.7);background:rgba(108,99,255,.07)}
+.l-input::placeholder{color:rgba(255,255,255,.28)}
+.l-btn{background:linear-gradient(90deg,#6c63ff,#7c6fff);border:none;border-radius:30px;padding:12px;color:#fff;font-size:14px;cursor:pointer;transition:all .2s;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+.l-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.l-btn.sec{background:transparent;border:1.5px solid rgba(255,255,255,.12);color:rgba(232,232,240,.45)}
+.l-btn.sec:hover{background:rgba(255,255,255,.06);color:#e8e8f0;transform:none}
+.l-err{color:#ff5f5f;font-size:11px;text-align:center;height:14px}
+.l-link{color:#6c63ff;font-size:12px;text-align:center;cursor:pointer;margin-top:4px}
+.l-link:hover{text-decoration:underline}
+.reg-title{color:#fff;font-size:16px;font-weight:600;text-align:center;margin-bottom:20px}
+/* OS */
+#os{width:100vw;height:100vh;position:relative;overflow:hidden;background:#e8eaf6;animation:osIn .8s cubic-bezier(.16,1,.3,1) both}
+@keyframes osIn{from{transform:scale(.82);opacity:0}to{transform:scale(1);opacity:1}}
+#wallpaper{position:fixed;inset:0;z-index:0;background:linear-gradient(160deg,#f6f5fa);background-size:cover;background-position:center;background-repeat:no-repeat}
+/* HOME */
+#home{position:absolute;inset:0 0 70px 0;overflow:hidden;z-index:1}
+.icon-grid{position:absolute;inset:0}
+.h-icon{position:absolute;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;padding:10px 6px;border-radius:16px;width:96px;transition:background .15s;animation:iconPop .45s cubic-bezier(.34,1.56,.64,1) both}
+.h-icon:hover{background:rgba(0,0,0,.06)}
+@keyframes iconPop{from{opacity:0;transform:scale(.4) translateY(24px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.h-icon .ico-wrap{width:69px;height:69px;border-radius:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.12);background:#fff}
+.h-icon .lbl{color:#1a1a2e;font-size:11px;text-align:center;line-height:1.3;max-width:86px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer-icon{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:8px 4px;border-radius:12px;width:100%;transition:background .15s;flex-shrink:0}
+.drawer-icon:hover{background:rgba(0,0,0,.06)}
+.drawer-icon .ico-wrap{width:52px;height:52px;border-radius:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);background:#fff}
+.drawer-icon .lbl{color:#1a1a2e;font-size:10px;text-align:center;line-height:1.3;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* SHELF */
+#shelf{position:absolute;left:50%;bottom:36px;z-index:100;transform:translateX(-50%) translateY(90px);display:inline-flex;align-items:center;gap:8px;padding:10px 14px;transform-origin:center bottom;scale:0.82;background:rgba(42,48,68,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.08);border-radius:999px;box-shadow:0 12px 36px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.05);opacity:0;transition:transform .3s cubic-bezier(.16,1,.3,1),opacity .3s;pointer-events:none;white-space:nowrap;}
+#shelf.visible{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
+.shelf-apps-btn{width:48px;height:48px;border:none;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 0 24px rgba(99,102,241,.45);transition:all .2s;}
+.shelf-apps-btn:hover{background:#7275ff;transform:scale(1.05);}
+.shelf-sep{width:1px;height:36px;margin:0 2px;background:rgba(255,255,255,.12);flex-shrink:0;}
+#shelf-wins{display:inline-flex;align-items:center;gap:8px;}
+.shelf-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.4);margin:0 4px;transition:background .3s;}
+.shelf-win-btn{width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.08);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.shelf-win-btn:hover,.shelf-win-btn.active{background:rgba(255,255,255,.18);}
+.shelf-win-btn.minimized{opacity:.5;}
+@keyframes statusDotPulse{0%,100%{background:rgba(34,197,94,.9);box-shadow:0 0 6px rgba(34,197,94,.5)}50%{background:rgba(34,197,94,.25);box-shadow:0 0 2px rgba(34,197,94,.2)}}
+#status-dot.running{animation:statusDotPulse 1.4s ease-in-out infinite;}
+#shelf-clock{color:#fff;font-size:20px;font-weight:600;letter-spacing:.03em;min-width:88px;height:48px;display:flex;align-items:center;justify-content:center;padding:0 10px;flex-shrink:0;}
+/* DRAWER */
+#app-drawer{position:absolute;bottom:118px;left:50%;transform:translateX(-50%) translateY(12px);z-index:50;background:#f5f5f7;border-radius:20px;padding:16px 16px 12px;box-shadow:0 24px 64px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.06);width:500px;max-height:540px;display:none;flex-direction:column;animation:drawerIn .2s cubic-bezier(.16,1,.3,1)}
+#app-drawer.open{display:flex}
+@keyframes drawerIn{from{opacity:0;transform:translateX(-50%) translateY(20px) scale(.97)}to{opacity:1;transform:translateX(-50%) translateY(12px) scale(1)}}
+.drawer-search-row{width:100%;margin-bottom:14px}
+.drawer-search{width:100%;background:rgba(255,255,255,.85);border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:9px 16px;font-size:13px;outline:none;color:#1a1a2e;user-select:text;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.drawer-search::placeholder{color:rgba(26,26,46,.35)}
+.drawer-search:focus{border-color:rgba(108,99,255,.5);background:#fff}
+.drawer-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;overflow-y:auto;width:100%}
+.drawer-close{position:absolute;top:10px;right:12px;background:rgba(0,0,0,.07);border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;color:#555;font-size:14px;display:flex;align-items:center;justify-content:center}
+/* WINDOWS */
+#windows{position:absolute;inset:0;pointer-events:none;z-index:10}
+/* CUSTOM MODAL */
+.cm-overlay{position:fixed;inset:0;z-index:99998;background:rgba(15,15,25,.45);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);animation:cmFadeIn .15s;padding:20px;box-sizing:border-box}
+.cm-overlay.closing{animation:cmFadeOut .14s both}
+@keyframes cmFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes cmFadeOut{from{opacity:1}to{opacity:0}}
+.cm-box{background:#fff;border-radius:16px;padding:22px 22px 18px;width:340px;max-width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);animation:cmPop .18s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes cmPop{from{opacity:0;transform:scale(.92) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.cm-msg{font-size:13px;color:#1f2937;line-height:1.6;margin-bottom:14px}
+.cm-input{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:9px 12px;font-size:13px;outline:none;margin-bottom:16px;user-select:text}
+.cm-input:focus{border-color:#6c63ff}
+.cm-actions{display:flex;justify-content:flex-end;gap:8px}
+.cm-btn{border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-weight:500}
+.cm-cancel{background:#f3f4f6;color:#374151}
+.cm-ok{background:#6c63ff;color:#fff}
+@keyframes asPulse{0%{box-shadow:0 0 0 0 rgba(108,99,255,.5);transform:scale(1)}30%{box-shadow:0 0 0 8px rgba(108,99,255,0);transform:scale(1.02)}100%{box-shadow:0 0 0 0 rgba(108,99,255,0);transform:scale(1)}}
+.as-pulse{animation:asPulse .6s ease-out}
+.vos-toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(12px);background:#1f2937;color:#fff;font-size:12px;font-weight:500;padding:10px 20px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:99997;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}
+.vos-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.as-tag-chip{border:1.5px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:999px;padding:7px 16px;font-size:12px;cursor:pointer;transition:all .12s;user-select:none;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.as-tag-chip:hover{border-color:#c7c5ff}
+.as-tag-chip.selected{background:#6c63ff;border-color:#6c63ff;color:#fff;font-weight:600}
+.win{position:absolute;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);min-width:280px;min-height:180px;display:flex;flex-direction:column;overflow:hidden;animation:winIn .32s cubic-bezier(.16,1,.3,1) both;pointer-events:auto}
+@keyframes winIn{from{opacity:0;transform:scale(.72) translateY(-28px)}to{opacity:1;transform:none}}
+.win.hidden{display:none}
+.win.closing{animation:winOut .2s ease-in forwards}
+@keyframes winOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.82)}}
+.win-dark .wcontent{background:#111}
+.win-dark .titlebar{background:#1c1c2e;border-bottom-color:rgba(255,255,255,.08)}
+.win-dark .wtitle{color:#e8e8f0}
+.titlebar{height:34px;background:rgba(245,245,250,.95);border-bottom:1px solid rgba(0,0,0,.08);display:flex;align-items:center;padding:0 12px;cursor:grab;flex-shrink:0}
+.titlebar:active{cursor:grabbing}
+.wtitle{color:#1a1a2e;font-size:12px;display:flex;align-items:center;gap:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0}
+.win-btns{margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0}
+.wbtn{width:12px;height:12px;border-radius:50%;border:none;cursor:pointer}
+.wbtn.mini{background:#ffc94d}.wbtn.maxi{background:#5dde7a}.wbtn.close{background:#ff5f5f}
+.wcontent{flex:1;overflow:auto;background:#fff}
+.app-col{height:100%;display:flex;flex-direction:column;background:#fff}
+/* inner styles */
+.term{background:#08080f;color:#00ff88;font-family:'Courier New',monospace;font-size:12px;padding:10px;height:100%;overflow-y:auto;line-height:1.75}
+.t-prompt{color:#00d4aa;font-weight:700}
+.term-in{background:transparent;border:none;color:#00ff88;font-family:inherit;font-size:inherit;outline:none;flex:1;min-width:0;user-select:text}
+.in-row{display:flex;align-items:center;gap:4px;padding:4px 10px;background:#08080f;border-top:1px solid rgba(255,255,255,.06)}
+.etb{background:#1e1e2e;border-bottom:1px solid #333;padding:0 8px;display:flex;gap:0;flex-shrink:0;align-items:stretch;overflow-x:auto}
+.ed-tab{padding:8px 14px;font-size:12px;cursor:pointer;color:#6b7280;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:5px}
+.ed-tab.active{color:#e8e8f0;border-bottom-color:#6c63ff}
+.ed-tab:hover{color:#c4b5fd}
+.ed-toolbar{background:#1c1c2e;border-bottom:1px solid #2a2a3e;padding:4px 8px;display:flex;gap:4px;flex-shrink:0;align-items:center}
+.ebtn{background:transparent;border:1px solid transparent;color:#ccc;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer}
+.ebtn:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.25)}
+.ebtn.run{background:#16a34a;color:#fff;border-color:#16a34a}
+.lang-sel{background:#333;border:1px solid #555;color:#ccc;border-radius:5px;padding:3px 8px;font-size:11px;outline:none}
+.ed-body{display:flex;flex:1;overflow:hidden}
+.ed-gutter{background:#1a1a2a;color:#555;font-family:'Courier New',monospace;font-size:12px;padding:8px 6px;text-align:right;line-height:1.75;min-width:34px;user-select:none;border-right:1px solid #333;overflow:hidden}
+.ebody{width:100%;flex:1;background:#1e1e2e;border:none;outline:none;color:#d4d4d4;font-size:12px;padding:8px;resize:none;font-family:'Courier New',monospace;line-height:1.75;user-select:text;tab-size:2}
+.ed-out{background:#0d0d15;border-top:1px solid #333;min-height:56px;max-height:110px;padding:8px;overflow-y:auto;font-family:'Courier New',monospace;font-size:11px;color:#00ff88;flex-shrink:0}
+.fi-folder{width:56px;height:48px;background:#6c63ff;border-radius:6px 6px 4px 4px;position:relative;display:flex;align-items:center;justify-content:center}
+.fi-folder::before{content:'';position:absolute;top:-8px;left:0;width:40%;height:10px;background:#6c63ff;border-radius:4px 4px 0 0}
+.fi-img{width:56px;height:48px;background:#6c63ff;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.fi-doc{width:48px;height:56px;background:#6c63ff;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.ftb{background:#f8f9fa;border-bottom:1px solid #e5e7eb;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.ftb-btn{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#374151;transition:background .1s;white-space:nowrap}
+.ftb-btn:hover{background:#f3f4f6}
+.fpath{flex:1;background:#e5e7eb;border-radius:8px;padding:4px 12px;font-size:12px;color:#374151;display:flex;justify-content:space-between;align-items:center;min-width:0}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px;padding:16px}
+.fi{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:8px;cursor:pointer;transition:background .1s}
+.fi:hover{background:rgba(108,99,255,.08)}
+.fi-name{color:#374151;font-size:11px;text-align:center;word-break:break-word;line-height:1.3;max-width:80px}
+.bbar{background:#f8f9fa;border-bottom:1px solid #e5e7eb;padding:5px 8px;display:flex;align-items:center;gap:4px;flex-shrink:0}
+.urlbar{flex:1;background:#e8eaed;border:none;border-radius:20px;padding:5px 14px;color:#202124;font-size:13px;outline:none;user-select:text}
+.sbody{flex:1;padding:14px;overflow-y:auto}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #e5e7eb}
+.slabel{color:#6b7280;font-size:12px}
+.tog{width:36px;height:20px;background:#d1d5db;border-radius:10px;cursor:pointer;position:relative;transition:all .2s;border:none}
+.tog.on{background:#6c63ff}
+.tknob{position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tog.on .tknob{transform:translateX(16px)}
+.store-card{background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:box-shadow .15s,border-color .15s;position:relative}
+.store-card:hover{box-shadow:0 4px 20px rgba(108,99,255,.12);border-color:#c4b5fd}
+.store-card.selected{border-color:#6c63ff;box-shadow:0 0 0 3px rgba(108,99,255,.15)}
+.store-ico{width:48px;height:48px;border-radius:12px;background:#f3f4f6;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.store-info{flex:1;min-width:0}
+.store-name{font-size:13px;font-weight:600;color:#1f2937;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.store-author{font-size:11px;color:#9ca3af;margin-bottom:6px}
+.store-desc{font-size:11px;color:#6b7280;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.store-by{font-size:10px;color:#9ca3af}
+.store-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.store-tag{font-size:10px;background:#f3f4f6;color:#6b7280;border-radius:10px;padding:2px 7px}
+.store-stats{display:flex;align-items:center;gap:8px;font-size:11px;color:#9ca3af}
+.store-star{color:#f59e0b;font-size:11px}
+.inst-btn{background:#6c63ff;color:#fff;border:none;border-radius:20px;padding:7px 16px;font-size:12px;cursor:pointer;white-space:nowrap;font-weight:500;display:flex;align-items:center;gap:5px}
+.inst-btn:hover{filter:brightness(1.1)}
+.inst-btn.done{background:#e5e7eb;color:#6b7280;cursor:default}
+.as-sidebar{width:200px;flex-shrink:0;border-right:1px solid #e5e7eb;overflow-y:auto;background:#f9fafb}
+.as-rank-item{display:flex;flex-direction:column;padding:8px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .1s}
+.as-rank-item:hover{background:#f3f4f6}
+.as-rank-num{font-size:12px;font-weight:700;color:#9ca3af;margin-bottom:1px}
+.as-rank-num.gold{color:#f59e0b}.as-rank-num.silver{color:#9ca3af}.as-rank-num.bronze{color:#b45309}
+.as-rank-name{font-size:12px;color:#1f2937;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.as-rank-stats{font-size:10px;color:#9ca3af}
+.as-tab{padding:7px 14px;font-size:12px;font-weight:500;cursor:pointer;border-bottom:2.5px solid transparent;color:#6b7280;white-space:nowrap;transition:all .15s;display:inline-flex;align-items:center;line-height:1}
+.as-tab.active{color:#6c63ff;border-bottom-color:#6c63ff}
+.as-tab:hover{color:#374151}
+.as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:16px}
+.adm-sec{background:#fff3f3;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:10px}
+.adm-grid{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.adm-grid .adm-sec{margin-bottom:0;flex:1 1 0;min-width:280px}
+.adm-perm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px}
+.adm-sec h4{color:#dc2626;font-size:13px;margin-bottom:8px}
+.urow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #fecaca}
+.rbadge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.rbadge.a{background:#fef3c7;color:#b45309}
+.rbadge.m{background:#dcfce7;color:#166534}
+.rbadge.u{background:#e0e7ff;color:#4338ca}
+/* CONTEXT MENU */
+#icon-ctx{position:fixed;z-index:9000;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);padding:4px;min-width:150px;animation:ctxIn .12s cubic-bezier(.16,1,.3,1)}
+@keyframes ctxIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:7px;font-size:13px;color:#1a1a2e;cursor:pointer;transition:background .1s}
+.ctx-item:hover{background:#f3f4f6}
+.ctx-item.danger{color:#dc2626}
+.ctx-item.danger:hover{background:#fee2e2}
+.ctx-sep{height:1px;background:#f0f0f0;margin:3px 4px}
+</style>
+</head>
+<body>
+<div id="boot">
+  <div class="boot-logo-wrap">
+    <div class="boot-arc"></div><div class="boot-arc2"></div>
+    <div class="boot-dots" id="boot-dots"></div>
+  </div>
+  <div class="boot-title">DotOS Core v4.0</div>
+  <div class="boot-sub">仮想オペレーティングシステム</div>
+  <div class="boot-status-txt" id="bmsg">起動中...</div>
+  <div class="boot-bar-wrap"><div class="boot-bar" id="bbar"></div></div>
+  <div class="boot-pct-row"><span id="bstatus">起動中</span><span id="bpct">0%</span></div>
+  <button class="boot-load-btn" id="boot-load-btn" onclick="bootLoad()">システムをロード</button>
+</div>
+<div id="os" style="opacity:0">
+  <div id="wallpaper"></div>
+  <div id="login-screen"><div id="ls-inner"></div></div>
+  <div id="home"><div class="icon-grid" id="icon-grid"></div></div>
+  <div id="app-drawer">
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    <div class="drawer-search-row">
+      <input class="drawer-search" placeholder="アプリを検索..." oninput="filterDrawer(this.value)" id="drawer-search-input">
+    </div>
+    <div class="drawer-grid" id="drawer-grid"></div>
+  </div>
+  <div id="windows"></div>
+  <div id="shelf">
+    <button class="shelf-apps-btn" onclick="toggleDrawer()">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="5" height="5" rx="1" fill="white"/>
+        <rect x="7.5" y="1" width="5" height="5" rx="1" fill="white"/>
+        <rect x="14" y="1" width="5" height="5" rx="1" fill="white"/>
+        <rect x="1" y="7.5" width="5" height="5" rx="1" fill="white"/>
+        <rect x="7.5" y="7.5" width="5" height="5" rx="1" fill="white"/>
+        <rect x="14" y="7.5" width="5" height="5" rx="1" fill="white"/>
+        <rect x="1" y="14" width="5" height="5" rx="1" fill="white"/>
+        <rect x="7.5" y="14" width="5" height="5" rx="1" fill="white"/>
+        <rect x="14" y="14" width="5" height="5" rx="1" fill="white"/>
+      </svg>
+    </button>
+    <div class="shelf-sep"></div>
+    <div id="shelf-wins"></div>
+    <div class="shelf-dot" id="status-dot"></div>
+    <div id="shelf-clock"></div>
+  </div>
+<script>const PERMS={
+  '特権管理者':['app_install','app_upload','app_delete','user_manage','settings_all','wallpaper','admin_panel','editor_build'],
+  '管理者':['app_install','app_upload','settings_all','wallpaper','editor_build','admin_panel'],
+  'ユーザー':['app_install','wallpaper','app_upload','settings_all'],
+  'ゲスト':[]
+};
+function hasPerm(p){return(PERMS[currentUser&&currentUser.role||'ゲスト']||[]).includes(p);}
+async function onlineGet(key){
+  try{var r=await window.storage.get(key,true);return r?JSON.parse(r.value):null;}catch(e){return null;}
+}
+async function onlineSet(key,val){
+  try{await window.storage.set(key,JSON.stringify(val),true);}catch(e){}
+}
+var accounts=[];
+var currentUser=null;
+async function loadAccounts(){
+  var data = await onlineGet('vos_accounts');
+  if(Array.isArray(data) && data.length){
+    accounts = data;
+  } else {
+    try {
+      var local = localStorage.getItem('vos_accounts');
+      if(local){
+        var parsed = JSON.parse(local);
+        if(Array.isArray(parsed) && parsed.length) accounts = parsed;
+      }
+    } catch(e){}
+  }
+  if(!accounts.length){
+    accounts=[{user:'admin',pass:'admin',role:'特権管理者'}];
+  }
+  await saveAccounts();
+}
+async function saveAccounts(){
+  await onlineSet('vos_accounts', accounts);
+  try { localStorage.setItem('vos_accounts', JSON.stringify(accounts)); } catch(e){}
+}
+var lsInner=document.getElementById('ls-inner');
+function showSignIn(){
+  lsInner.innerHTML='<div class="login-card"><div class="login-header"><span style="font-size:20px">🔑</span><span class="login-title">Sign In</span></div>'
+    +'<div class="login-form"><input class="l-input" id="si-user" type="text" placeholder="ユーザー名" autocomplete="off">'
+    +'<input class="l-input" id="si-pass" type="password" placeholder="パスワード" onkeydown="if(event.key===\'Enter\')doSignIn()">'
+    +'<div class="l-err" id="si-err"></div>'
+    +'<button class="l-btn" onclick="doSignIn()">ログイン</button>'
+    +'<span class="l-link" onclick="showRegister()">新規アカウント登録</span>'
+    +'<span class="l-link" style="color:rgba(255,255,255,.25);font-size:10px" onclick="resetAccounts()">リセット</span></div></div>';
+  setTimeout(function(){var e=document.getElementById('si-user');if(e)e.focus();},60);
+}
+async function doSignIn(){
+  var u=(document.getElementById('si-user').value||'').trim();
+  var p=document.getElementById('si-pass').value||'';
+  var err=document.getElementById('si-err');
+  if(err)err.textContent='確認中...';
+  await loadAccounts();
+  var acct=accounts.find(function(a){return a.user===u;});
+  if(!acct||acct.pass!==p){if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
+  currentUser=acct;
+  var ls=document.getElementById('login-screen');
+  ls.classList.add('out');
+  setTimeout(function(){ls.style.display='none';renderHomeIcons();applySavedSettings();updateShelfVisibility();},600);
+  termPromptUser=acct.user;
+}
+function showRegister(){
+  lsInner.innerHTML='<div class="login-card"><div class="reg-title">新規アカウント作成</div>'
+    +'<div class="login-form"><input class="l-input" id="reg-user" placeholder="ユーザー名" type="text" autocomplete="off">'
+    +'<input class="l-input" id="reg-pass" placeholder="パスワード" type="password">'
+    +'<input class="l-input" id="reg-pass2" placeholder="パスワード（確認）" type="password" onkeydown="if(event.key===\'Enter\')doRegister()">'
+    +'<div class="l-err" id="reg-err"></div>'
+    +'<button class="l-btn" onclick="doRegister()">アカウント作成</button>'
+    +'<button class="l-btn sec" onclick="showSignIn()">← 戻る</button></div></div>';
+}
+async function doRegister(){
+  var u=(document.getElementById('reg-user').value||'').trim();
+  var p=document.getElementById('reg-pass').value||'';
+  var p2=document.getElementById('reg-pass2').value||'';
+  var err=document.getElementById('reg-err');
+  if(!u){if(err)err.textContent='ユーザー名を入力してください';return;}
+  if(!p){if(err)err.textContent='パスワードを入力してください';return;}
+  if(p!==p2){if(err)err.textContent='パスワードが一致しません';return;}
+  if(err)err.textContent='確認中...';
+  var fresh=await onlineGet('vos_accounts');
+  if(Array.isArray(fresh)&&fresh.length)accounts=fresh;
+  if(accounts.find(function(a){return a.user===u;})){if(err)err.textContent='そのユーザー名は使用中です';return;}
+  accounts.push({user:u,pass:p,role:'ユーザー'});
+  await saveAccounts();
+  if(err){err.style.color='#00d4aa';err.textContent='作成しました！ログイン中...';}
+  setTimeout(function(){
+    currentUser=accounts.find(function(a){return a.user===u;});
+    termPromptUser=u;
+    setWallpaper('gradient','linear-gradient(160deg,#f6f5fa)',null);
+    var ls=document.getElementById('login-screen');
+    ls.classList.add('out');
+    setTimeout(function(){
+      ls.style.display='none';
+      renderHomeIcons();
+      applySavedSettings();
+      updateShelfVisibility();
+    },600);
+  },800);
+}
+async function resetAccounts(){if(!(await customConfirm('リセットしますか？')))return;accounts=[{user:'admin',pass:'admin',role:'特権管理者'}];try{localStorage.removeItem('vos_accounts');}catch(e){}try{await window.storage.delete('vos_accounts',true);}catch(e){}await saveAccounts();showSignIn();}
+function doLogout(){
+  Object.keys(wins).forEach(function(id){var el=document.getElementById('w-'+id);if(el)el.remove();delete wins[id];});
+  updateShelf();currentUser=null;
+  var ls=document.getElementById('login-screen');ls.style.display='flex';ls.classList.remove('out');showSignIn();
+}
+var bootMsgs=['カーネルを初期化中...','デバイスをスキャン中...','ドライバをロード中...','グラフィックを準備中...','準備完了'];
+var bp=0;
+var bbar=document.getElementById('bbar'),bpctEl=document.getElementById('bpct');
+var bstatEl=document.getElementById('bstatus'),bmsgEl=document.getElementById('bmsg');
+var bootEl=document.getElementById('boot'),osEl=document.getElementById('os');
+var loadBtn=document.getElementById('boot-load-btn');
+var dg=document.getElementById('boot-dots');
+for(var i=0;i<25;i++){var d=document.createElement('div');d.className='boot-dot';d.style.animationDelay=(Math.random()*1.6)+'s';dg.appendChild(d);}
+var bootTimer=setInterval(function(){
+  bp+=Math.random()*11+5;if(bp>=100){bp=100;clearInterval(bootTimer);}
+  bbar.style.width=bp+'%';
+  if(bpctEl)bpctEl.textContent=Math.floor(bp)+'%';
+  var msg=bootMsgs[Math.min(Math.floor(bp/25),bootMsgs.length-1)];
+  if(bmsgEl)bmsgEl.textContent=msg;if(bstatEl)bstatEl.textContent=msg;
+  if(bp===100)setTimeout(function(){if(loadBtn)loadBtn.classList.add('show');},300);
+},140);
+async function bootLoad(){
+  bootEl.classList.add('out');osEl.style.opacity='1';
+  await Promise.all([loadAccounts(),loadStoreApps()]);
+  setTimeout(function(){bootEl.remove();showSignIn();},800);
+}
+function updateClock(){var n=new Date();var el=document.getElementById('shelf-clock');if(el)el.textContent=n.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});}
+updateClock();setInterval(updateClock,1000);
+var shelfHideTimer=null;
+function isAnyWinMaxi(){return Object.keys(maxiState).length>0;}
+function updateShelfVisibility(){
+  var shelf=document.getElementById('shelf');if(!shelf)return;
+  if(!isAnyWinMaxi()){
+    shelf.classList.add('visible');
+    if(shelfHideTimer){clearTimeout(shelfHideTimer);shelfHideTimer=null;}
+  }
+}
+osEl.addEventListener('mousemove',function(e){
+  var shelf=document.getElementById('shelf');if(!shelf)return;
+  if(!isAnyWinMaxi()){shelf.classList.add('visible');return;}
+  var y=e.clientY-osEl.getBoundingClientRect().top;
+  if(y>osEl.offsetHeight-80){
+    shelf.classList.add('visible');
+    if(shelfHideTimer){clearTimeout(shelfHideTimer);shelfHideTimer=null;}
+  }else{
+    if(!shelfHideTimer)shelfHideTimer=setTimeout(function(){
+      if(isAnyWinMaxi())shelf.classList.remove('visible');
+      shelfHideTimer=null;
+    },800);
+  }
+});
+osEl.addEventListener('mouseleave',function(){
+  if(isAnyWinMaxi())document.getElementById('shelf').classList.remove('visible');
+});
+var SVG={
+  terminal:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+  editor:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+  files:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  browser:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  settings:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l-.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  calc:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/></svg>',
+  notes:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  appstore:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+  admin:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+};
+var APP_DEFS=[
+  {id:'terminal',label:'ターミナル',w:560,h:400},
+  {id:'editor',label:'エディタ',w:560,h:400},
+  {id:'files',label:'ファイル',w:560,h:400},
+  {id:'browser',label:'ブラウザ',w:560,h:400},
+  {id:'settings',label:'設定',w:560,h:400},
+  {id:'calc',label:'電卓',w:560,h:400},
+  {id:'notes',label:'メモ帳',w:560,h:400},
+  {id:'appstore',label:'App Store',w:640,h:440},
+  {id:'admin',label:'管理パネル',w:560,h:400,adminOnly:true}
+];
+function getVisibleApps(){
+  var base=APP_DEFS.filter(function(a){return !a.adminOnly||hasPerm('admin_panel');});
+  var store=getStoreAppsSync();
+  var installed=getInstalledIds();
+  var userApps=installed.map(function(id){return store.find(function(a){return a.id===id;});}).filter(Boolean).map(function(a){
+    return {id:a.id,label:a.name,w:640,h:500,userApp:true,storeDef:a};
+  });
+  return base.concat(userApps);
+}
+var _storeCache=null;
+async function loadStoreApps(){
+  var data=await onlineGet('vos_store');
+  if(!Array.isArray(data)){
+    try{data=JSON.parse(localStorage.getItem('vos_store_local')||'null');}catch(e){data=null;}
+  }
+  _storeCache=Array.isArray(data)?data:(_storeCache||[]);
+  return _storeCache;
+}
+function getStoreAppsSync(){return _storeCache||[];}
+async function saveStoreApps(arr){
+  _storeCache=arr;
+  try{localStorage.setItem('vos_store_local',JSON.stringify(arr));}catch(e){}
+  await onlineSet('vos_store',arr);
+}
+function getInstalledIds(){try{return JSON.parse(localStorage.getItem('vos_inst_'+(currentUser&&currentUser.user||''))||'[]');}catch(e){return [];}}
+async function installApp(id){
+  if(!hasPerm('app_install')){await customAlert('インストール権限がありません');return;}
+  var arr=getInstalledIds();if(arr.indexOf(id)<0){arr.push(id);localStorage.setItem('vos_inst_'+(currentUser&&currentUser.user||''),JSON.stringify(arr));}
+  renderHomeIcons();renderDrawerIcons();
+  var card=document.getElementById('as-card-'+id);if(card)refreshStoreCardBtn(card,id,true);
+}
+async function uninstallApp(id){
+  if(!(await customConfirm('このアプリをアンインストールしますか？')))return;
+  var arr=getInstalledIds().filter(function(x){return x!==id;});
+  localStorage.setItem('vos_inst_'+(currentUser&&currentUser.user||''),JSON.stringify(arr));
+  if(wins[id])closeWin(id);
+  renderHomeIcons();renderDrawerIcons();
+  var card=document.getElementById('as-card-'+id);if(card){refreshStoreCardBtn(card,id,false);pulseCard(card);}
+  showToast('✓ アンインストールしました');
+}
+function refreshStoreCardBtn(card,id,isInst){
+  var row=card.querySelector('[data-btnrow]');if(!row)return;
+  var delBtn=hasPerm('app_delete')?'<button onclick="delStoreApp(\''+id+'\')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:11px;flex-shrink:0">削除</button>':'';
+  if(isInst){
+    row.innerHTML='<button class="inst-btn" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;width:100%;justify-content:center" onclick="uninstallApp(\''+id+'\')">✕ アンインストール</button>'+delBtn;
+  }else{
+    row.innerHTML='<button class="inst-btn" style="width:100%;justify-content:center" onclick="asInstall(\''+id+'\')">⬇ 導入</button>'+delBtn;
+  }
+}
+var iconPositions={};
+var TILE_W=109,TILE_H=121,ICON_W=96,ICON_H=105,ICON_PAD=34;
+function gridCols(){return Math.max(1,Math.floor((osEl.offsetWidth-ICON_PAD)/TILE_W));}
+function gridRows(){return Math.max(1,Math.floor((osEl.offsetHeight-80-ICON_PAD)/TILE_H));}
+function cellToPx(col,row){return{x:ICON_PAD+col*TILE_W,y:ICON_PAD+row*TILE_H};}
+function pxToCell(x,y){return{col:Math.round((x-ICON_PAD)/TILE_W),row:Math.round((y-ICON_PAD)/TILE_H)};}
+function occupiedCellMap(excludeId){
+  var occ={};
+  Object.keys(iconPositions).forEach(function(oid){
+    if(oid===excludeId)return;
+    var p=iconPositions[oid];
+    occ[p.col+','+p.row]=true;
+  });
+  return occ;
+}
+function findFreeCell(excludeId,col,row){
+  var maxCols=gridCols(),maxRows=gridRows();
+  var occ=occupiedCellMap(excludeId);
+  function free(c,r){return c>=0&&c<maxCols&&r>=0&&r<maxRows&&!occ[c+','+r];}
+  if(free(col,row))return{col:col,row:row};
+  for(var c=col;c<maxCols;c++){
+    var startR=(c===col)?row+1:0;
+    for(var r=startR;r<maxRows;r++){
+      if(free(c,r))return{col:c,row:r};
+    }
+  }
+  for(var c2=0;c2<maxCols;c2++){
+    for(var r2=0;r2<maxRows;r2++){
+      if(free(c2,r2))return{col:c2,row:r2};
+    }
+  }
+  return{col:col,row:row};
+}
+function loadIconPos(){
+  try{
+    if(localStorage.getItem('vos_ipos_ver')!=='5'){
+      localStorage.removeItem('vos_ipos');
+      localStorage.setItem('vos_ipos_ver','5');
+    }
+    var s=JSON.parse(localStorage.getItem('vos_ipos')||'null');
+    if(s)iconPositions=s;
+  }catch(e){}
+}
+function saveIconPos(){localStorage.setItem('vos_ipos',JSON.stringify(iconPositions));}
+var homeOrder=[];
+function initHomeOrder(){homeOrder=APP_DEFS.filter(function(a){return !a.adminOnly||hasPerm('admin_panel');}).map(function(a){return a.id;});}
+function findNextEmptyCell(excludeId){
+  var maxCols=gridCols(),maxRows=gridRows();
+  var occ=occupiedCellMap(excludeId);
+  for(var c=0;c<maxCols;c++){
+    for(var r=0;r<maxRows;r++){
+      if(!occ[c+','+r])return{col:c,row:r};
+    }
+  }
+  return{col:0,row:0};
+}
+function renderHomeIcons(){
+  initHomeOrder();
+  loadIconPos();
+  var grid=document.getElementById('icon-grid');grid.innerHTML='';
+  var apps=getVisibleApps();
+  var ids=apps.map(function(a){return a.id;});
+  ids.forEach(function(id){if(homeOrder.indexOf(id)<0)homeOrder.push(id);});
+  homeOrder=homeOrder.filter(function(id){return ids.indexOf(id)>=0;});
+  homeOrder.forEach(function(id,idx){
+    var def=apps.find(function(a){return a.id===id;});if(!def)return;
+    if(!iconPositions[id])iconPositions[id]=findNextEmptyCell(null);
+    var px=cellToPx(iconPositions[id].col,iconPositions[id].row);
+    var el=document.createElement('div');
+    el.className='h-icon';el.dataset.id=id;
+    el.style.left=px.x+'px';el.style.top=px.y+'px';
+    el.style.animationDelay=(idx*0.04)+'s';
+    var svg=def.userApp?(def.storeDef&&def.storeDef.svg||SVG.appstore):SVG[id]||SVG.appstore;
+    el.innerHTML='<div class="ico-wrap">'+svg+'</div><div class="lbl">'+def.label+'</div>';
+    var lastTap=0;
+    el.addEventListener('mousedown',function(e){
+      var now=Date.now();var isDbl=(now-lastTap)<350;lastTap=now;
+      e.preventDefault();e.stopPropagation();
+      if(e.button===2)return;
+      if(isDbl){openApp(id);return;}
+      startIconDrag(e,id,el);
+    });
+    el.addEventListener('contextmenu',function(e){
+      e.preventDefault();e.stopPropagation();
+      showIconMenu(e.clientX,e.clientY,id,def);
+    });
+    grid.appendChild(el);
+  });
+}
+function renderDrawerIcons(){
+  var grid=document.getElementById('drawer-grid');grid.innerHTML='';
+  getVisibleApps().forEach(function(def,idx){
+    var el=document.createElement('div');
+    el.className='drawer-icon';el.dataset.id=def.id;
+    el.style.animationDelay=(idx*0.03)+'s';
+    var svg=(def.userApp?(def.storeDef&&def.storeDef.svg||SVG.appstore):SVG[def.id]||SVG.appstore).replace('width="24" height="24"','width="20" height="20"');
+    el.innerHTML='<div class="ico-wrap">'+svg+'</div><div class="lbl">'+def.label+'</div>';
+    el.addEventListener('click',function(){openApp(def.id);closeDrawer();});
+    grid.appendChild(el);
+  });
+}
+function startIconDrag(e,id,el){
+  var startX=e.clientX,startY=e.clientY;
+  var startElX=parseInt(el.style.left)||0,startElY=parseInt(el.style.top)||0;
+  var moved=false,ghost=null;
+  function onMove(ev){
+    var dx=ev.clientX-startX,dy=ev.clientY-startY;
+    if(!moved&&Math.sqrt(dx*dx+dy*dy)<6)return;
+    if(!moved){moved=true;el.style.visibility='hidden';ghost=el.cloneNode(true);ghost.style.cssText='position:fixed;pointer-events:none;z-index:9000;width:80px;opacity:.85;transform:scale(1.1);transition:none;animation:none';document.body.appendChild(ghost);}
+    if(ghost){ghost.style.left=(ev.clientX-40)+'px';ghost.style.top=(ev.clientY-44)+'px';}
+  }
+  function onUp(ev){
+    document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);
+    if(ghost)ghost.remove();el.style.visibility='';
+    if(moved){
+      var dropX=startElX+(ev.clientX-startX),dropY=startElY+(ev.clientY-startY);
+      var cell=pxToCell(dropX,dropY);
+      cell.col=Math.max(0,Math.min(cell.col,gridCols()-1));
+      cell.row=Math.max(0,Math.min(cell.row,gridRows()-1));
+      var free=findFreeCell(id,cell.col,cell.row);
+      var px=cellToPx(free.col,free.row);
+      el.style.left=px.x+'px';el.style.top=px.y+'px';
+      iconPositions[id]={col:free.col,row:free.row};saveIconPos();
+    }
+  }
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+}
+function showIconMenu(x,y,id,def){
+  closeIconMenu();
+  var menu=document.createElement('div');menu.id='icon-ctx';
+  var isUserApp=def&&def.userApp;
+  var isInst=isUserApp&&getInstalledIds().indexOf(id)>=0;
+  var items='<div class="ctx-item" onclick="openApp(\''+id+'\');closeIconMenu()">▶ 開く</div>';
+  items+='<div class="ctx-sep"></div>';
+  if(isUserApp&&isInst){
+    items+='<div class="ctx-item danger" onclick="uninstallApp(\''+id+'\');closeIconMenu()">✕ アンインストール</div>';
+  }
+  items+='<div class="ctx-item" onclick="resetIconPos(\''+id+'\');closeIconMenu()">⟳ 位置をリセット</div>';
+  menu.innerHTML=items;
+  menu.style.left=Math.min(x,window.innerWidth-170)+'px';
+  menu.style.top=Math.min(y,window.innerHeight-120)+'px';
+  document.body.appendChild(menu);
+  setTimeout(function(){document.addEventListener('mousedown',closeIconMenuOutside,{once:true});},0);
+}
+function closeIconMenu(){var m=document.getElementById('icon-ctx');if(m)m.remove();}
+function closeIconMenuOutside(e){if(!e.target.closest('#icon-ctx'))closeIconMenu();}
+function resetIconPos(id){
+  iconPositions[id]=findNextEmptyCell(id);
+  saveIconPos();renderHomeIcons();
+}
+function toggleDrawer(){
+  var d=document.getElementById('app-drawer');
+  if(d.classList.contains('open')){closeDrawer();}
+  else{
+    renderDrawerIcons();d.classList.add('open');
+    setTimeout(function(){var e=document.getElementById('drawer-search-input');if(e)e.focus();},100);
+    setTimeout(function(){document.addEventListener('mousedown',drawerOutsideClose);},0);
+  }
+}
+function drawerOutsideClose(e){
+  var d=document.getElementById('app-drawer');
+  if(d&&!d.contains(e.target)&&!e.target.closest('.shelf-apps-btn')){closeDrawer();}
+}
+function closeDrawer(){
+  document.getElementById('app-drawer').classList.remove('open');
+  document.removeEventListener('mousedown',drawerOutsideClose);
+}
+function filterDrawer(q){
+  var term=q.trim().toLowerCase();
+  document.querySelectorAll('#drawer-grid .drawer-icon').forEach(function(el){
+    var lbl=(el.querySelector('.lbl')&&el.querySelector('.lbl').textContent||'').toLowerCase();
+    el.style.display=(!term||lbl.indexOf(term)>=0)?'flex':'none';
+  });
+}
+var zTop=10,wins={},winContainer=document.getElementById('windows'),maxiState={};
+async function openApp(id){
+  if(!currentUser)return;closeDrawer();
+  if(wins[id]){focusWin(id);var we=document.getElementById('w-'+id);if(we)we.classList.remove('hidden');
+    updateShelf();return;}
+  if(id==='appstore'){await loadStoreApps();renderHomeIcons();}
+  var storeApp=getStoreAppsSync().find(function(a){return a.id===id;});
+  var builtIn=APP_DEFS.find(function(a){return a.id===id;});
+  var def=storeApp?{id:id,label:storeApp.name,w:560,h:400,userApp:true,storeDef:storeApp}:builtIn;
+  if(!def)return;
+  if(def.adminOnly&&!hasPerm('admin_panel')){
+    return;
+  }
+  if(def.userApp&&getInstalledIds().indexOf(id)<0){await customAlert('このアプリはインストールが必要です。');return;}
+  var W=osEl.offsetWidth,H=osEl.offsetHeight;
+  var offset=Object.keys(wins).length*22;
+  var x=Math.min(80+offset,W-def.w-20),y=Math.min(40+offset,H-def.h-68);
+  var div=document.createElement('div');
+  var isDark=['terminal','editor'].indexOf(id)>=0||def.userApp;
+  div.className='win'+(isDark?' win-dark':'');
+  div.id='w-'+id;
+  div.style.cssText='left:'+x+'px;top:'+y+'px;width:'+def.w+'px;height:'+def.h+'px;z-index:'+(++zTop);
+  var svgIcon=def.userApp?(def.storeDef&&def.storeDef.svg||SVG.appstore):SVG[id]||SVG.appstore;
+  var smallSvg=svgIcon.replace('width="24" height="24"','width="13" height="13"');
+  div.innerHTML='<div class="titlebar" id="tb-'+id+'"><span class="wtitle">'+smallSvg+'&nbsp;'+def.label+'</span>'
+    +'<div class="win-btns"><button class="wbtn mini" onclick="miniWin(\''+id+'\')"></button>'
+    +'<button class="wbtn maxi" onclick="maxiWin(\''+id+'\')"></button>'
+    +'<button class="wbtn close" onclick="closeWin(\''+id+'\')"></button></div></div>'
+    +'<div class="wcontent" id="wc-'+id+'">'+buildContent(id,def)+'</div>';
+  winContainer.appendChild(div);
+  wins[id]=def;
+  makeDraggable(div,document.getElementById('tb-'+id));
+  div.addEventListener('mousedown',function(){focusWin(id);});
+  updateShelf();
+  if(id==='terminal')setTimeout(function(){var e=document.getElementById('term-in');if(e)e.focus();},60);
+  if(id==='settings')setTimeout(function(){showSettingsPage();},50);
+}
+function closeWin(id){var el=document.getElementById('w-'+id);if(!el)return;el.classList.add('closing');setTimeout(function(){el.remove();delete wins[id];delete maxiState[id];updateShelf();updateShelfVisibility();},200);}
+function miniWin(id){var el=document.getElementById('w-'+id);if(el)el.classList.add('hidden');updateShelf();}
+function focusWin(id){var el=document.getElementById('w-'+id);if(el)el.style.zIndex=++zTop;}
+function maxiWin(id){
+  var el=document.getElementById('w-'+id);if(!el)return;
+  if(maxiState[id]){
+    var s=maxiState[id];el.style.left=s.l;el.style.top=s.t;el.style.width=s.w;el.style.height=s.h;el.style.borderRadius='12px';delete maxiState[id];
+    var wc0=el.querySelector('.wcontent');if(wc0)wc0.style.zoom='';
+  }else{
+    maxiState[id]={l:el.style.left,t:el.style.top,w:el.style.width,h:el.style.height};
+    el.style.left='0px';el.style.top='0px';
+    el.style.width=osEl.offsetWidth+'px';el.style.height=osEl.offsetHeight+'px';el.style.borderRadius='0px';
+    var wc=el.querySelector('.wcontent');if(wc)wc.style.zoom='1.18';
+  }
+  focusWin(id);updateShelfVisibility();
+}
+function updateShelf(){
+  var sw=document.getElementById('shelf-wins');
+  if(!sw)return;
+  sw.innerHTML='';
+  var ids=Object.keys(wins);
+  ids.forEach(function(id){
+    var def=wins[id];
+    var hidden=document.getElementById('w-'+id)&&document.getElementById('w-'+id).classList.contains('hidden');
+    var btn=document.createElement('button');
+    btn.className='shelf-win-btn'+(hidden?' minimized':' active');
+    btn.title=def.label;
+    var svgIcon=def.userApp?(def.storeDef&&def.storeDef.svg||SVG.appstore):SVG[id]||SVG.appstore;
+    btn.innerHTML=svgIcon.replace('width="24" height="24"','width="14" height="14"').replace(/stroke="[^"]*"/g,'stroke="white"').replace('fill="none"','fill="none"');
+    btn.onclick=function(){var el=document.getElementById('w-'+id);if(el&&el.classList.contains('hidden')){el.classList.remove('hidden');focusWin(id);}else miniWin(id);updateShelf();};
+    sw.appendChild(btn);
+  });
+  var sd=document.getElementById('status-dot');
+  if(sd){if(Object.keys(wins).length>0){sd.classList.add('running');}else{sd.classList.remove('running');}}
+}
+function makeDraggable(win,handle){
+  var ox,oy,drag=false;
+  handle.addEventListener('mousedown',function(e){if(e.target.closest('.win-btns'))return;drag=true;ox=e.clientX-win.offsetLeft;oy=e.clientY-win.offsetTop;e.preventDefault();});
+  document.addEventListener('mousemove',function(e){if(!drag)return;var r=osEl.getBoundingClientRect();win.style.left=Math.max(0,Math.min(e.clientX-r.left-ox,osEl.offsetWidth-win.offsetWidth))+'px';win.style.top=Math.max(0,(e.clientY-r.top-oy))+'px';});
+  document.addEventListener('mouseup',function(){drag=false;});
+}
+var wpEl=document.getElementById('wallpaper');
+function wpKey(k){var u=currentUser&&currentUser.user||'guest';return 'vos_'+k+'_'+u;}
+function setWallpaper(id,css,imgData){
+  localStorage.setItem(wpKey('wp'),id||'gradient');
+  wpEl.style.cssText='position:fixed;inset:0;z-index:0;';
+  if(imgData){
+    localStorage.removeItem(wpKey('wp_css'));localStorage.setItem(wpKey('wp_img'),imgData);
+    wpEl.style.backgroundImage='url('+imgData+')';
+    wpEl.style.backgroundSize='cover';wpEl.style.backgroundPosition='center';wpEl.style.backgroundRepeat='no-repeat';
+  }else{
+    localStorage.setItem(wpKey('wp_css'),css||'');localStorage.removeItem(wpKey('wp_img'));
+    wpEl.style.background=css||'linear-gradient(160deg,#f6f5fa)';
+  }
+  var body=document.getElementById('settings-body');
+  if(body)showSettingsPage();
+}
+function loadWallpaperFile(input){
+  var file=input.files&&input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    setWallpaper('custom','',ev.target.result);
+    var p=document.getElementById('wp-custom-preview');
+    if(p)p.innerHTML='<div style="border-radius:8px;overflow:hidden;width:100%;height:50px;background-image:url('+ev.target.result+');background-size:cover;background-position:center;margin-top:8px"></div><div style="font-size:10px;color:#6b7280;margin-top:4px">'+file.name+'</div>';
+  };
+  reader.readAsDataURL(file);
+}
+function applySavedSettings(){
+  var wpImg=localStorage.getItem(wpKey('wp_img'));
+  var wpCss=localStorage.getItem(wpKey('wp_css'));
+  wpEl.style.cssText='position:fixed;inset:0;z-index:0;';
+  if(wpImg){wpEl.style.backgroundImage='url('+wpImg+')';wpEl.style.backgroundSize='cover';wpEl.style.backgroundPosition='center';wpEl.style.backgroundRepeat='no-repeat';}
+  else if(wpCss){wpEl.style.background=wpCss;}
+  else{wpEl.style.background='linear-gradient(160deg,#e8eaf6,#ede9fe 30%,#e0f2fe 65%,#f0fdf4)';}
+  applyIconSize(localStorage.getItem('vos_iconsize')||'normal');
+}
+function applyIconSize(sz){var s={small:'57px',normal:'69px',large:'85px'};document.querySelectorAll('.ico-wrap').forEach(function(el){el.style.width=s[sz]||'69px';el.style.height=s[sz]||'69px';});}
+function buildSettings(){
+  return '<div style="height:100%;overflow-y:auto;padding:0"><div id="settings-body"></div></div>';
+}
+function showSettingsPage(){
+  var body=document.getElementById('settings-body');if(!body)return;
+  var u=currentUser||{};
+  var curWp=localStorage.getItem(wpKey('wp'))||'gradient';
+  var DEFAULT_WP_CSS='linear-gradient(160deg,#f6f5fa)';
+  var S='border:1px solid #d1d5db;border-radius:8px;padding:7px 12px;font-size:12px;outline:none;user-select:text;display:block;width:100%;margin-bottom:6px;box-sizing:border-box';
+  var SEC='padding:16px 16px 0';
+  var HDR='font-size:11px;font-weight:600;color:#9ca3af;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px';
+  var wpHtml=hasPerm('wallpaper')?
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+    +'<div onclick="setWallpaper(\'gradient\',\''+DEFAULT_WP_CSS+'\',null)" title="デフォルトに戻す" style="width:56px;height:40px;border-radius:8px;background:'+DEFAULT_WP_CSS+';border:2px solid '+(curWp==='gradient'?'#6c63ff':'#e5e7eb')+';flex-shrink:0;cursor:pointer"></div>'
+    +'<span style="font-size:11px;color:#9ca3af">クリックでデフォルトに戻す</span>'
+    +'</div>'
+    +'<button onclick="document.getElementById(\'wp-fi\').click()" style="background:#6c63ff;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">📁 画像から選択</button>'
+    +'<input id="wp-fi" type="file" accept="image/*" style="position:fixed;left:-9999px;opacity:0" onchange="loadWallpaperFile(this)">'
+    +'<div id="wp-custom-preview"></div>'
+    :'<p style="color:#9ca3af;font-size:12px;margin:0">壁紙変更の権限がありません</p>';
+  body.innerHTML=
+    '<div style="'+SEC+'"><div style="'+HDR+'">🖼 壁紙</div>'+wpHtml+'</div>'
+    +'<div style="'+SEC+';padding-top:14px;margin-top:2px"><div style="'+HDR+'">👤 アカウント</div>'
+    +'<div class="srow"><span class="slabel">ユーザー名</span><span style="font-size:12px;color:#374151">'+u.user+'</span></div>'
+    +'<div class="srow"><span class="slabel">ロール</span><span style="font-size:12px;color:#6b7280">'+u.role+'</span></div>'
+    +'<div class="srow"><span class="slabel">権限</span><span style="font-size:11px;color:#9ca3af">'+(PERMS[u.role||'ゲスト']||[]).join(' · ')+'</span></div>'
+    +'<div style="margin-top:12px"><div style="font-size:12px;font-weight:500;color:#374151;margin-bottom:8px">パスワード変更</div>'
+    +'<input id="pw-cur" type="password" placeholder="現在のパスワード" style="'+S+'">'
+    +'<input id="pw-new" type="password" placeholder="新しいパスワード" style="'+S+'">'
+    +'<input id="pw-new2" type="password" placeholder="確認" style="'+S+'">'
+    +'<div id="pw-err" style="color:#dc2626;font-size:11px;height:14px;margin-bottom:6px"></div>'
+    +'<button onclick="changePw()" style="background:#6c63ff;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer">変更</button></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb">'
+    +'<button onclick="doLogout()" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px">ログアウト</button>'
+    +(u.user!=='admin'?'<button onclick="deleteSelfAccount()" style="background:#dc2626;border:none;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px">アカウント削除</button>':'')
+    +'</div></div>'
+    +'<div style="'+SEC+';padding-top:14px;margin-top:2px;padding-bottom:20px"><div style="'+HDR+'">ℹ️ バージョン情報</div>'
+    +'<div class="srow"><span class="slabel">OS</span><span style="font-size:12px;color:#374151">DotOS Core v4.0</span></div>'
+    +'<div class="srow"><span class="slabel">アカウント数</span><span style="font-size:12px">'+accounts.length+'</span></div></div>';
+}
+async function changePw(){
+  var cur=document.getElementById('pw-cur')&&document.getElementById('pw-cur').value||'';
+  var nw=document.getElementById('pw-new')&&document.getElementById('pw-new').value||'';
+  var nw2=document.getElementById('pw-new2')&&document.getElementById('pw-new2').value||'';
+  var err=document.getElementById('pw-err');if(!currentUser)return;
+  if(cur!==currentUser.pass){if(err)err.textContent='現在のパスワードが違います';return;}
+  if(!nw){if(err)err.textContent='新しいパスワードを入力';return;}
+  if(nw!==nw2){if(err)err.textContent='パスワードが一致しません';return;}
+  currentUser.pass=nw;var i=accounts.findIndex(function(a){return a.user===currentUser.user;});if(i>=0)accounts[i].pass=nw;await saveAccounts();
+  if(err){err.style.color='#16a34a';err.textContent='変更しました！';setTimeout(function(){err.textContent='';err.style.color='#dc2626';},2000);}
+}
+async function deleteSelfAccount(){
+  if(!currentUser||currentUser.user==='admin'){await customAlert('このアカウントは削除できません');return;}
+  if(!(await customConfirm('本当に「'+currentUser.user+'」を削除しますか？\nこの操作は取り消せません。')))return;
+  accounts=accounts.filter(function(a){return a.user!==currentUser.user;});
+  await saveAccounts();
+  doLogout();
+}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function customModal(innerHtml,onMount){
+  return new Promise(function(resolve){
+    var overlay=document.createElement('div');
+    overlay.className='cm-overlay';
+    overlay.innerHTML='<div class="cm-box">'+innerHtml+'</div>';
+    document.body.appendChild(overlay);
+    function close(val){overlay.classList.add('closing');setTimeout(function(){overlay.remove();},140);resolve(val);}
+    overlay.addEventListener('mousedown',function(e){if(e.target===overlay)close(false);});
+    if(onMount)onMount(overlay,close);
+  });
+}
+function customAlert(message){
+  return customModal(
+    '<div class="cm-msg">'+escH(message).replace(/\n/g,'<br>')+'</div>'
+    +'<div class="cm-actions"><button class="cm-btn cm-ok">OK</button></div>',
+    function(overlay,close){overlay.querySelector('.cm-ok').onclick=function(){close(true);};}
+  );
+}
+function customConfirm(message){
+  return customModal(
+    '<div class="cm-msg">'+escH(message).replace(/\n/g,'<br>')+'</div>'
+    +'<div class="cm-actions"><button class="cm-btn cm-cancel">キャンセル</button><button class="cm-btn cm-ok">OK</button></div>',
+    function(overlay,close){
+      overlay.querySelector('.cm-cancel').onclick=function(){close(false);};
+      overlay.querySelector('.cm-ok').onclick=function(){close(true);};
+    }
+  );
+}
+function customPrompt(message,defaultValue){
+  return customModal(
+    '<div class="cm-msg">'+escH(message).replace(/\n/g,'<br>')+'</div>'
+    +'<input class="cm-input" value="'+escH(defaultValue||'')+'">'
+    +'<div class="cm-actions"><button class="cm-btn cm-cancel">キャンセル</button><button class="cm-btn cm-ok">OK</button></div>',
+    function(overlay,close){
+      var input=overlay.querySelector('.cm-input');
+      setTimeout(function(){input.focus();input.select();},60);
+      overlay.querySelector('.cm-cancel').onclick=function(){close(null);};
+      overlay.querySelector('.cm-ok').onclick=function(){close(input.value);};
+      input.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){close(input.value);}
+        if(e.key==='Escape'){close(null);}
+      });
+    }
+  );
+}
+var termPromptUser='user';
+function buildContent(id,def){
+  if(id==='terminal')return buildTerminal();
+  if(id==='editor')return buildEditor();
+  if(id==='files')return buildFiles();
+  if(id==='browser')return buildBrowser();
+  if(id==='settings')return buildSettings();
+  if(id==='calc')return buildCalc();
+  if(id==='notes')return buildNotes();
+  if(id==='appstore')return buildAppStore();
+  if(id==='admin')return buildAdmin();
+  if(def&&def.userApp)return buildUserApp(def.storeDef);
+  return '<div style="padding:16px;color:#374151">準備中</div>';
+}
+function buildTerminal(){
+  return '<div class="term" id="term-out"><div style="color:#6c63ff;font-weight:500;margin-bottom:4px">DotOS Terminal v4.0</div><div style="color:rgba(255,255,255,.3);font-size:11px;margin-bottom:8px">help でコマンド一覧</div></div>'
+    +'<div class="in-row"><span class="t-prompt" id="term-prompt">'+termPromptUser+'@dotos:~$&nbsp;</span><input class="term-in" id="term-in" autocomplete="off" onkeydown="termKey(event)" placeholder="コマンドを入力..."></div>';
+}
+var termHistory=[],histIdx=-1;
+function termKey(e){
+  if(e.key==='Enter'){var i=document.getElementById('term-in');var cmd=i.value.trim();if(cmd){termHistory.unshift(cmd);histIdx=-1;}termRun(cmd);i.value='';}
+  else if(e.key==='ArrowUp'){histIdx=Math.min(histIdx+1,termHistory.length-1);document.getElementById('term-in').value=termHistory[histIdx]||'';e.preventDefault();}
+  else if(e.key==='ArrowDown'){histIdx=Math.max(histIdx-1,-1);document.getElementById('term-in').value=histIdx>=0?termHistory[histIdx]:'';e.preventDefault();}
+}
+function termRun(cmd){
+  var out=document.getElementById('term-out');var u=currentUser&&currentUser.user||'user';
+  var echo='<div><span class="t-prompt">'+u+'@dotos:~$</span> <span style="color:#e8e8f0">'+escH(cmd)+'</span></div>';
+  var c=(cmd||'').toLowerCase().trim();var resp='';
+  if(!c){scrollTerm();return;}
+  if(c==='help')resp='<div style="color:#ffd93d">ls / pwd / whoami / id / date / uname / uptime / echo [text] / clear / users / perms</div>';
+  else if(c==='ls')resp='<span style="color:#2dd4bf">ドキュメント/  ダウンロード/  画像/  app/  readme.txt</span>';
+  else if(c==='pwd')resp='/home/'+u;
+  else if(c==='whoami')resp=u;
+  else if(c==='id')resp=u+' ('+((currentUser&&currentUser.role)||'ゲスト')+')';
+  else if(c==='perms')resp=(PERMS[(currentUser&&currentUser.role)||'ゲスト']||[]).join(', ')||'なし';
+  else if(c==='date')resp=new Date().toLocaleString('ja-JP');
+  else if(c==='uname'||c==='uname -a')resp='DotOS 4.0.0 x86_64';
+  else if(c==='uptime')resp='稼働時間: '+Math.floor(Math.random()*60+1)+'分';
+  else if(c==='users')resp=accounts.map(function(a){return a.user+' ('+a.role+')';}).join('<br>');
+  else if(c==='clear'){out.innerHTML='';return;}
+  else if(c==='echo')resp='';
+  else if(c.indexOf('echo ')==0)resp=escH(cmd.trim().slice(5));
+  else resp='<span style="color:#ff5f5f">コマンドが見つかりません: '+escH(cmd)+'</span>';
+  out.innerHTML+=echo+'<div style="margin-bottom:4px">'+resp+'</div>';scrollTerm();
+}
+function scrollTerm(){var o=document.getElementById('term-out');if(o)o.scrollTop=o.scrollHeight;}
+var TAB_TPL={
+  html:'<div style="font-family:sans-serif;padding:20px;color:#333;">\n  <h2 style="color:#6366f1;">My App</h2>\n  <button id="btn1">クリック</button>\n  <div id="output"></div>\n</div>',
+  js:'document.getElementById("btn1").addEventListener("click", function() {\n  document.getElementById("output").textContent = "Hello, DotOS!";\n});',
+  css:'body { background: #f8f9fa; }\nh2 { margin-bottom: 12px; }\nbutton { padding: 8px 16px; cursor: pointer; }'
+};
+var edState=null;
+var _edCodeTab='html';
+var _edMode='code';
+var _edSaveTimer=null;
+function edKey(){return 'vos_ed_'+(currentUser&&currentUser.user||'guest');}
+function edLoadState(){
+  var k=edKey();
+  function rd(suffix,dflt){var v=localStorage.getItem(k+suffix);return v===null?dflt:v;}
+  edState={html:rd('',TAB_TPL.html),js:rd('_js',TAB_TPL.js),css:rd('_css',TAB_TPL.css)};
+  try{localStorage.removeItem(k+'_startup');}catch(e){}
+}
+function edPersist(){
+  if(!edState)return;
+  var k=edKey();
+  localStorage.setItem(k,edState.html);
+  localStorage.setItem(k+'_js',edState.js);
+  localStorage.setItem(k+'_css',edState.css);
+}
+function edExt(tab){return tab==='html'?'html':tab==='css'?'css':'js';}
+function buildEditor(){
+  edLoadState();
+  var savedTab=localStorage.getItem(edKey()+'_tab');
+  _edCodeTab=['html','js','css'].indexOf(savedTab)>=0?savedTab:'html';
+  _edMode='code';
+  var codeTabs=[{id:'html',label:'HTML'},{id:'js',label:'JavaScript'},{id:'css',label:'CSS'}];
+  var tabsHtml=codeTabs.map(function(t){
+    return '<div class="ed-tab'+(t.id===_edCodeTab?' active':'')+'" data-edtab="'+t.id+'" onclick="edSelectCodeTab(\''+t.id+'\')">'+t.label+'</div>';
+  }).join('')
+  +'<div class="ed-tab" data-edtab="preview" onclick="edSelectMode(\'preview\')">👁 プレビュー</div>'
+  +'<div class="ed-tab" data-edtab="console" onclick="edSelectMode(\'console\')">🖥 コンソール</div>';
+  return '<div style="height:100%;display:flex;flex-direction:column;background:#0d0d15">'
+    +'<div style="background:#111827;border-bottom:1px solid #1f2937;display:flex;overflow-x:auto;flex-shrink:0">'+tabsHtml+'</div>'
+    +'<div class="ed-toolbar">'
+    +'<button class="ebtn" onclick="edNew()">新規</button>'
+    +'<button class="ebtn" id="ed-save-btn" onclick="edSave()">保存</button>'
+    +'<button class="ebtn run" onclick="edSelectMode(\'preview\')">▶ 実行</button>'
+    +'<button class="ebtn" onclick="edDownload()">⬇ ダウンロード</button>'
+    +(hasPerm('editor_build')?'<button class="ebtn" style="background:#1e3a5f;color:#60a5fa;border:1px solid #1d4ed8" onclick="edSaveToFiles()">📁 ファイルへ</button>':'')
+    +'<span id="ed-autosave-indicator" style="font-size:10px;color:#555;margin-left:6px">自動保存ON</span>'
+    +'<span id="ed-status" style="font-size:10px;color:#4b5563;margin-left:auto;flex-shrink:0"></span>'
+    +'</div>'
+    +'<div class="ed-body" id="ed-body" style="flex:1;overflow:hidden;display:flex">'
+    +'<div id="ed-gutter" class="ed-gutter">1</div>'
+    +'<textarea id="editor-ta" class="ebody" spellcheck="false" oninput="edOnInput()" onkeydown="edKeydown(event)" onscroll="edSyncScroll()" onclick="edUpdateStatus()" onkeyup="edUpdateStatus()">'+escH(edState[_edCodeTab])+'</textarea>'
+    +'</div>'
+    +'<div id="ed-preview" style="flex:1;display:none;overflow:hidden;flex-direction:column">'
+    +'<div style="background:#1a1a2e;padding:5px 12px;flex-shrink:0"><button class="ebtn" onclick="edSelectMode(\'code\')">← コードに戻る</button></div>'
+    +'<iframe id="ed-iframe" style="width:100%;flex:1;border:none;background:#fff"></iframe></div>'
+    +'<div id="ed-console" style="flex:1;display:none;overflow:hidden;background:#0d0d15;flex-direction:column">'
+    +'<div style="background:#1a1a2e;padding:5px 12px;flex-shrink:0"><button class="ebtn" onclick="edSelectMode(\'code\')">← コードに戻る</button></div>'
+    +'<div style="display:flex;flex:1;min-height:0">'
+    +'<div style="flex:1;display:flex;flex-direction:column;border-right:1px solid #1e1e3e;min-width:0">'
+    +'<div style="background:#1a1a2e;padding:5px 12px;font-size:11px;color:#60a5fa;font-weight:600;border-bottom:1px solid #1e1e3e;flex-shrink:0;letter-spacing:.04em">🌐 HTML</div>'
+    +'<iframe id="ed-console-html" style="flex:1;border:none;background:#fff;width:100%;height:100%"></iframe>'
+    +'</div>'
+    +'<div style="flex:1;display:flex;flex-direction:column;min-width:0">'
+    +'<div style="background:#1a1a2e;padding:5px 12px;font-size:11px;color:#00ff88;font-weight:600;border-bottom:1px solid #1e1e3e;flex-shrink:0;letter-spacing:.04em">▶ JavaScript</div>'
+    +'<div id="ed-console-js" style="flex:1;padding:10px 12px;font-family:\'Courier New\',monospace;font-size:11px;color:#d4d4d4;overflow-y:auto;line-height:1.8"></div>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+    +'<div id="ed-out" class="ed-out" style="display:none"></div>'
+    +'</div>';
+}
+function edUpdateTabHighlight(){
+  var active=_edMode==='code'?_edCodeTab:_edMode;
+  document.querySelectorAll('.ed-tab').forEach(function(t){
+    t.classList.toggle('active',t.getAttribute('data-edtab')===active);
+  });
+}
+function edShowPanel(mode){
+  var body=document.getElementById('ed-body');
+  var preview=document.getElementById('ed-preview');
+  var cons=document.getElementById('ed-console');
+  if(body)body.style.display=mode==='code'?'flex':'none';
+  if(preview)preview.style.display=mode==='preview'?'flex':'none';
+  if(cons)cons.style.display=mode==='console'?'flex':'none';
+}
+function edSelectCodeTab(tab){
+  _edCodeTab=tab;_edMode='code';
+  localStorage.setItem(edKey()+'_tab',tab);
+  edUpdateTabHighlight();edShowPanel('code');
+  var ta=document.getElementById('editor-ta');
+  if(ta){ta.value=edState[tab];edUpdateGutter();edUpdateStatus();ta.focus();}
+}
+function edSelectMode(mode){
+  _edMode=mode;
+  edUpdateTabHighlight();edShowPanel(mode);
+  if(mode==='code'){
+    var ta=document.getElementById('editor-ta');
+    if(ta){ta.value=edState[_edCodeTab];edUpdateGutter();edUpdateStatus();}
+  }else if(mode==='preview'){
+    edRenderPreview();
+  }else if(mode==='console'){
+    edRenderConsole();
+  }
+}
+var ED_ERROR_TRAP='<script>window.addEventListener("error",function(e){'
+  +'var b=document.createElement("div");'
+  +'b.style.cssText="position:fixed;left:0;right:0;bottom:0;background:#dc2626;color:#fff;font:12px monospace;padding:8px 12px;z-index:99999;white-space:pre-wrap";'
+  +'b.textContent="✗ 実行時エラー: "+e.message+" (line "+e.lineno+")";'
+  +'document.body.appendChild(b);'
+  +'});<\/script>';
+function edRenderPreview(){
+  var f=document.getElementById('ed-iframe');if(!f)return;
+  var doc='<!DOCTYPE html><html><head><style>'+edState.css+'</style></head><body>'+edState.html+ED_ERROR_TRAP+'<script>'+edState.js+'<\/script></body></html>';
+  f.srcdoc=doc;
+}
+function edConsoleCapture(logs,color,prefix){
+  return function(){
+    var msg=Array.from(arguments).map(function(a){try{return typeof a==='object'?JSON.stringify(a,null,2):String(a);}catch(e){return String(a);}}).join(' ');
+    logs.push('<div style="color:'+color+';border-bottom:1px solid rgba(255,255,255,.04);padding:2px 0">'+(prefix||'')+escH(msg)+'</div>');
+  };
+}
+function edRenderConsole(){
+  var htmlFrame=document.getElementById('ed-console-html');
+  if(htmlFrame)htmlFrame.srcdoc='<!DOCTYPE html><html><head><style>'+edState.css+'</style></head><body>'+edState.html+'</body></html>';
+  var jsOut=document.getElementById('ed-console-js');if(!jsOut)return;
+  var js=edState.js;
+  if(js.trim()){
+    var logs=[];
+    var fc={log:edConsoleCapture(logs,'#d4d4d4'),error:edConsoleCapture(logs,'#ff5f5f','✗ '),warn:edConsoleCapture(logs,'#ffd93d','⚠ ')};
+    try{
+      var fn=new Function('console',js);fn(fc);
+      jsOut.innerHTML='<div style="color:#00ff88;font-size:11px;margin-bottom:6px">✓ 実行完了</div>'+(logs.length?logs.join(''):'<div style="color:#6b7280;font-size:11px">（出力なし）</div>');
+    }catch(err){jsOut.innerHTML='<div style="color:#ff5f5f;font-size:11px">✗ エラー: '+escH(err.message)+'</div>';}
+  }else{
+    jsOut.innerHTML='<div style="color:#6b7280;font-size:11px">（JavaScriptコードなし）</div>';
+  }
+}
+function edUpdateGutter(){
+  var ta=document.getElementById('editor-ta');if(!ta)return;
+  var n=ta.value.split('\n').length;
+  var g=document.getElementById('ed-gutter');
+  if(g){g.innerHTML=Array.from({length:n},function(_,i){return i+1;}).join('<br>');g.scrollTop=ta.scrollTop;}
+}
+function edSyncScroll(){
+  var ta=document.getElementById('editor-ta'),g=document.getElementById('ed-gutter');
+  if(ta&&g)g.scrollTop=ta.scrollTop;
+}
+function edUpdateStatus(){
+  var ta=document.getElementById('editor-ta'),st=document.getElementById('ed-status');
+  if(!ta||!st)return;
+  var lines=ta.value.split('\n').length;
+  var chars=ta.value.length;
+  st.textContent=lines+' 行 · '+chars+' 文字';
+}
+function edDownload(){
+  var ta=document.getElementById('editor-ta');if(ta)edState[_edCodeTab]=ta.value;
+  var blob=new Blob([edState[_edCodeTab]],{type:'text/plain'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='untitled.'+edExt(_edCodeTab);
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+function edOnInput(){
+  var ta=document.getElementById('editor-ta');if(!ta)return;
+  edState[_edCodeTab]=ta.value;
+  edUpdateGutter();
+  edUpdateStatus();
+  edAutoSave();
+}
+function edAutoSave(){
+  if(_edSaveTimer)clearTimeout(_edSaveTimer);
+  _edSaveTimer=setTimeout(function(){
+    edPersist();
+    var ind=document.getElementById('ed-autosave-indicator');
+    if(ind){ind.textContent='✓ 保存済み';ind.style.color='#00d4aa';setTimeout(function(){ind.textContent='自動保存ON';ind.style.color='#555';},1000);}
+  },800);
+}
+function edKeydown(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();edSave();return;}
+  if(e.key==='Tab'){
+    e.preventDefault();
+    var t=e.target;var s=t.selectionStart;
+    t.value=t.value.slice(0,s)+'  '+t.value.slice(t.selectionEnd);
+    t.selectionStart=t.selectionEnd=s+2;
+    edOnInput();
+  }
+}
+async function edNew(){
+  if(!(await customConfirm('この内容を消去してテンプレートに戻しますか？')))return;
+  edState[_edCodeTab]=TAB_TPL[_edCodeTab]||'';
+  var ta=document.getElementById('editor-ta');
+  if(ta){ta.value=edState[_edCodeTab];edUpdateGutter();edUpdateStatus();}
+  edPersist();
+}
+function edSave(){
+  var ta=document.getElementById('editor-ta');if(ta)edState[_edCodeTab]=ta.value;
+  edPersist();
+  var btn=document.getElementById('ed-save-btn');if(btn){btn.textContent='✓ 保存';setTimeout(function(){btn.textContent='保存';},1200);}
+}
+async function edSaveToFiles(){
+  var ta=document.getElementById('editor-ta');if(ta)edState[_edCodeTab]=ta.value;
+  if(!edState.html.trim()&&!edState.css.trim()&&!edState.js.trim()){await customConfirm('コードを入力してください');return;}
+  var bundled='<!DOCTYPE html><html><head><style>'+edState.css+'</style></head><body>'+edState.html+'<script>'+edState.js+'<\/script></body></html>';
+  var u=currentUser&&currentUser.user||'guest';
+  var key='vos_appfiles_'+u;
+  var files=[];try{files=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){}
+  var defName='untitled.html';
+  var name=await customPrompt('ファイル名を入力してください（HTML・CSS・JavaScriptをまとめて1つのアプリとして保存します）',defName);
+  if(!name||!name.trim())return;
+  name=name.trim();
+  var idx=files.findIndex(function(f){return f.name===name;});
+  if(idx>=0){if(!(await customConfirm('"'+name+'" は既に存在します。上書きしますか？')))return;files.splice(idx,1);}
+  files.push({name:name,lang:'html',code:bundled,created:Date.now()});
+  localStorage.setItem(key,JSON.stringify(files));
+  var out=document.getElementById('ed-out');
+  if(out){out.style.display='block';out.innerHTML='<span style="color:#00ff88;font-size:11px">✓ ファイルアプリの app/ に保存しました（HTML+CSS+JS一式） → 「'+escH(name)+'」</span>';}
+  setTimeout(function(){if(out)out.style.display='none';},2600);
+  showToast('✓ 保存しました');
+}
+function getAppFiles(){
+  var u=currentUser&&currentUser.user||'guest';
+  try{return JSON.parse(localStorage.getItem('vos_appfiles_'+u)||'[]');}catch(e){return [];}
+}
+function saveAppFiles(files){
+  var u=currentUser&&currentUser.user||'guest';
+  localStorage.setItem('vos_appfiles_'+u,JSON.stringify(files));
+}
+async function deleteAppFile(name){
+  if(!(await customConfirm('「'+name+'」を削除しますか？')))return;
+  closeFilesPreview();
+  saveAppFiles(getAppFiles().filter(function(f){return f.name!==name;}));
+  refreshFilesApp();
+}
+async function renameAppFile(oldName){
+  var files=getAppFiles();
+  var f=files.find(function(x){return x.name===oldName;});if(!f)return;
+  var newName=await customPrompt('新しいファイル名',oldName);
+  if(!newName||!newName.trim()||newName.trim()===oldName)return;
+  newName=newName.trim();
+  if(files.some(function(x){return x.name===newName;})){await customConfirm('「'+newName+'」は既に存在します');return;}
+  f.name=newName;
+  saveAppFiles(files);
+  closeFilesPreview();
+  refreshFilesApp();
+}
+function closeFilesPreview(){
+  var p=document.getElementById('files-preview-panel');if(p)p.remove();
+}
+function refreshFilesApp(){
+  var fw=document.getElementById('w-files');
+  var fc=fw&&fw.querySelector('.wcontent');
+  if(!fc)return;
+  fc.innerHTML=buildFilesInner();
+}
+var _filesFolder=null;
+function filesGoRoot(){_filesFolder=null;refreshFilesApp();}
+function filesOpenFolder(name){_filesFolder=name;refreshFilesApp();}
+function filesPreviewFile(name,ev){
+  if(ev)ev.stopPropagation();
+  var file=getAppFiles().find(function(f){return f.name===name;});
+  if(!file)return;
+  var fw=document.getElementById('w-files');
+  var fc=fw&&fw.querySelector('.wcontent');
+  if(!fc)return;
+  closeFilesPreview();
+  var body='';
+  if(file.lang==='html'){
+    body='<iframe srcdoc="'+escH(file.code)+'" style="flex:1;border:none;width:100%;background:#fff"></iframe>';
+  }else if(file.lang==='javascript'){
+    var logs=[];
+    var fc2={log:function(){logs.push('<div>'+escH(Array.from(arguments).map(String).join(' '))+'</div>');},
+      error:function(){logs.push('<div style="color:#ff5f5f">✗ '+escH(Array.from(arguments).map(String).join(' '))+'</div>');},
+      warn:function(){logs.push('<div style="color:#ffd93d">⚠ '+escH(Array.from(arguments).map(String).join(' '))+'</div>');}};
+    try{var fn=new Function('console',file.code);fn(fc2);
+      body='<div style="flex:1;padding:14px;font-family:\'Courier New\',monospace;font-size:12px;line-height:1.7;overflow-y:auto;background:#1e1e2e;color:#d4d4d4">'
+        +'<div style="color:#00ff88;margin-bottom:6px">✓ 実行完了</div>'
+        +(logs.length?logs.join(''):'<span style="color:#6b7280">（出力なし）</span>')+'</div>';
+    }catch(err){body='<div style="flex:1;padding:14px;color:#ff5f5f;font-size:12px;background:#1e1e2e">✗ エラー: '+escH(err.message)+'</div>';}
+  }else{
+    body='<pre style="flex:1;padding:14px;font-family:\'Courier New\',monospace;font-size:12px;white-space:pre-wrap;overflow-y:auto;user-select:text;margin:0">'+escH(file.code)+'</pre>';
+  }
+  var panel=document.createElement('div');
+  panel.id='files-preview-panel';
+  panel.style.cssText='position:absolute;inset:0;background:#fff;z-index:10;display:flex;flex-direction:column';
+  panel.innerHTML='<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #e5e7eb;flex-shrink:0">'
+    +'<button onclick="closeFilesPreview()" style="background:#f3f4f6;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:13px">←</button>'
+    +'<span style="font-size:13px;font-weight:600;color:#1f2937">'+escH(file.name)+'</span>'
+    +'<span style="font-size:10px;color:#9ca3af">'+escH(file.lang)+'</span>'
+    +'<div style="margin-left:auto;display:flex;gap:6px">'
+    +'<button onclick="renameAppFile(\''+escH(file.name)+'\')" style="background:#f3f4f6;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;color:#374151">名前変更</button>'
+    +'<button onclick="deleteAppFile(\''+escH(file.name)+'\')" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;color:#dc2626">削除</button>'
+    +'</div>'
+    +'</div>'+body;
+  fc.style.position='relative';
+  fc.appendChild(panel);
+}
+function filesToolbarHtml(){
+  return '<div class="ftb">'
+    +(_filesFolder?'<button class="ftb-btn" onclick="filesGoRoot()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> ルートに戻る</button>'
+      :'<span style="font-size:12px;color:#9ca3af;padding:5px 4px">📁 ホーム</span>')
+    +'</div>';
+}
+function filesPathHtml(label,countLabel){
+  return '<div class="fpath"><span>'+label+'</span><span style="color:#9ca3af">'+countLabel+'</span></div>';
+}
+function filesInfoRow(label,val){
+  return '<div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="color:#6b7280">'+escH(label)+'</span><span style="color:#1f2937;font-weight:500">'+escH(String(val))+'</span></div>';
+}
+function buildFilesInner(){
+  if(_filesFolder==='Apps')return buildFilesAppsFolder();
+  if(_filesFolder==='Data')return buildFilesDataFolder();
+  if(_filesFolder==='Desktop')return buildFilesDesktopFolder();
+  if(_filesFolder==='Documents')return buildFilesDocumentsFolder();
+  if(_filesFolder==='System')return buildFilesSystemFolder();
+  return buildFilesRoot();
+}
+function buildFilesRoot(){
+  var folderSvg='<svg width="32" height="28" viewBox="0 0 32 28" fill="none"><rect x="0" y="6" width="32" height="22" rx="4" fill="#6c63ff"/><rect x="0" y="2" width="14" height="8" rx="3" fill="#6c63ff"/><rect x="2" y="8" width="28" height="18" rx="3" fill="#7c6fff"/></svg>';
+  var folders=[
+    {id:'Apps',desc:getAppFiles().length+'件'},
+    {id:'Documents',desc:''},
+    {id:'Desktop',desc:''},
+    {id:'System',desc:''},
+    {id:'Data',desc:''}
+  ];
+  var items=folders.map(function(f){
+    return '<div class="fi" title="'+escH(f.id)+'" onclick="filesOpenFolder(\''+f.id+'\')">'+folderSvg+'<span class="fi-name">'+escH(f.id)+'</span></div>';
+  }).join('');
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/',folders.length+' items')
+    +'<div style="flex:1;overflow-y:auto"><div class="fgrid">'+items+'</div></div>'
+    +'</div>';
+}
+function buildFilesAppsFolder(){
+  var files=getAppFiles();
+  var imgSvg='<svg width="32" height="28" viewBox="0 0 32 28" fill="none"><rect x="0" y="0" width="32" height="28" rx="4" fill="#6c63ff"/><circle cx="10" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M0 20 L10 12 L18 18 L24 12 L32 20 L32 28 L0 28Z" fill="rgba(255,255,255,0.25)"/></svg>';
+  var docSvg='<svg width="28" height="32" viewBox="0 0 28 32" fill="none"><rect x="0" y="0" width="28" height="32" rx="4" fill="#6c63ff"/><line x1="6" y1="10" x2="22" y2="10" stroke="rgba(255,255,255,0.7)" stroke-width="2"/><line x1="6" y1="16" x2="22" y2="16" stroke="rgba(255,255,255,0.7)" stroke-width="2"/><line x1="6" y1="22" x2="16" y2="22" stroke="rgba(255,255,255,0.7)" stroke-width="2"/></svg>';
+  var items=files.map(function(f){
+    var ico=f.lang==='html'?imgSvg:docSvg;
+    var shortName=f.name;
+    return '<div class="fi" title="'+escH(f.name)+'" onclick="filesPreviewFile(\''+escH(f.name)+'\')">'+ico
+      +'<span class="fi-name">'+escH(shortName)+'</span>'
+      +'<button onclick="event.stopPropagation();deleteAppFile(\''+escH(f.name)+'\')" title="削除" style="font-size:9px;background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:2px 5px;cursor:pointer;margin-top:2px">✕</button>'
+      +'</div>';
+  }).join('');
+  if(!items)items='<div style="color:#9ca3af;font-size:12px;padding:20px;text-align:center;grid-column:1/-1">app/ にファイルがありません<br><span style="font-size:11px">エディタで作成して「📁 ファイルへ」で保存</span></div>';
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/ Apps',files.length+' items')
+    +'<div style="flex:1;overflow-y:auto"><div class="fgrid">'+items+'</div></div>'
+    +'</div>';
+}
+function buildFilesDocumentsFolder(){
+  var key='vos_notes_'+(currentUser&&currentUser.user||'guest');
+  var note=localStorage.getItem(key)||'';
+  var body=note.trim()
+    ?'<pre style="flex:1;padding:14px;font-family:inherit;font-size:12px;white-space:pre-wrap;overflow-y:auto;user-select:text;margin:0;color:#374151">'+escH(note)+'</pre>'
+    :'<div style="color:#9ca3af;font-size:12px;padding:20px;text-align:center">メモがありません<br><span style="font-size:11px">メモ帳アプリで書いてみましょう</span></div>';
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/ Documents',note.trim()?'1 item':'0 items')
+    +'<div style="flex:1;display:flex;flex-direction:column;overflow-y:auto">'+body+'</div>'
+    +'<div style="padding:10px 14px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'notes\')">📝 メモ帳を開く</button></div>'
+    +'</div>';
+}
+function buildFilesDesktopFolder(){
+  var wp=localStorage.getItem(wpKey('wp'))||'gradient';
+  var iconCount=Object.keys((typeof iconPositions!=='undefined'&&iconPositions)||{}).length;
+  var instCount=getInstalledIds().length;
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/ Desktop','3 items')
+    +'<div style="flex:1;overflow-y:auto">'
+    +filesInfoRow('現在の壁紙',wp)
+    +filesInfoRow('デスクトップのアイコン数',iconCount)
+    +filesInfoRow('インストール済みアプリ数',instCount)
+    +'</div>'
+    +'<div style="padding:10px 14px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'settings\')">⚙ 設定を開く</button></div>'
+    +'</div>';
+}
+function buildFilesSystemFolder(){
+  var u=currentUser&&currentUser.user||'ゲスト';
+  var role=(currentUser&&currentUser.role)||'ゲスト';
+  var perms=(PERMS[role]||[]).join(' • ')||'なし';
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/ System','4 items')
+    +'<div style="flex:1;overflow-y:auto">'
+    +filesInfoRow('ユーザー名',u)
+    +filesInfoRow('役職',role)
+    +filesInfoRow('権限',perms)
+    +filesInfoRow('OSバージョン','DotOS 4.0.0 x86_64')
+    +'</div>'
+    +'</div>';
+}
+function buildFilesDataFolder(){
+  var appFilesCount=getAppFiles().length;
+  var storeCount=getStoreAppsSync().length;
+  var instCount=getInstalledIds().length;
+  var rows=filesInfoRow('保存済みファイル (Apps)',appFilesCount)
+    +filesInfoRow('App Store 登録アプリ数',storeCount)
+    +filesInfoRow('インストール済みアプリ数',instCount);
+  if(hasPerm('user_manage')){rows+=filesInfoRow('登録ユーザー数',accounts.length);}
+  return '<div class="app-col">'
+    +filesToolbarHtml()
+    +filesPathHtml('/ Data',(hasPerm('user_manage')?4:3)+' items')
+    +'<div style="flex:1;overflow-y:auto">'+rows+'</div>'
+    +'</div>';
+}
+function buildFiles(){
+  _filesFolder=null;
+  return buildFilesInner();
+}
+function buildBrowser(){
+  return '<div class="app-col">'
+    +'<div class="bbar">'
+    +'<button onclick="browserNav(-1)" style="background:none;border:none;cursor:pointer;padding:4px;display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>'
+    +'<button onclick="browserNav(1)" style="background:none;border:none;cursor:pointer;padding:4px;display:flex"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>'
+    +'<button id="br-ref-btn" onclick="browserRefresh()" style="background:none;border:none;cursor:pointer;padding:4px;display:flex"><svg id="br-ref-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.87-3.83"/></svg></button>'
+    +'<input id="browser-url" class="urlbar" value="dotos://newtab" onkeydown="if(event.key===\'Enter\')browserGo(this.value)">'
+    +'<a id="br-newtab-btn" href="#" target="_blank" rel="noopener noreferrer" title="新しいタブで開く（サイトによってはここでの表示が許可されていません）" style="background:none;border:none;cursor:pointer;padding:4px;display:none;flex-shrink:0;color:inherit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
+    +'</div><div id="browser-body" style="flex:1;overflow:hidden;position:relative">'+googleNewTab()+'</div></div>';
+}
+function googleNewTab(){
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#fff;padding:20px">'
+    +'<div style="font-size:60px;font-weight:700;margin-bottom:20px;letter-spacing:-2px"><span style="color:#4285f4">G</span><span style="color:#ea4335">o</span><span style="color:#fbbc05">o</span><span style="color:#4285f4">g</span><span style="color:#34a853">l</span><span style="color:#ea4335">e</span></div>'
+    +'<div style="display:flex;align-items:center;border:1px solid #dfe1e5;border-radius:24px;padding:10px 18px;width:480px;max-width:90%;box-shadow:0 1px 6px rgba(32,33,36,.1);gap:8px;background:#fff">'
+    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    +'<input id="g-main-search" style="flex:1;border:none;outline:none;font-size:16px;color:#202124;user-select:text" placeholder="検索、またはURLを入力" onkeydown="if(event.key===\'Enter\'&&this.value.trim()){var v=this.value.trim();document.getElementById(\'browser-url\').value=v;browserGo(v);}"></div>'
+    +'<div style="display:flex;gap:12px;margin-top:20px">'
+    +'<button onclick="var q=document.getElementById(\'g-main-search\')&&document.getElementById(\'g-main-search\').value&&document.getElementById(\'g-main-search\').value.trim();if(q){document.getElementById(\'browser-url\').value=q;browserGo(q);}" style="background:#f8f9fa;border:1px solid #f8f9fa;border-radius:4px;padding:9px 16px;font-size:14px;color:#3c4043;cursor:pointer">検索</button>'
+    +'</div>'
+    +'<div style="font-size:11px;color:#9aa0a6;margin-top:22px;text-align:center;max-width:420px;line-height:1.6">検索語を入力すると実際の検索結果を新しいタブで開きます。URLを入力した場合はこの中に直接表示を試みますが、サイトのセキュリティ設定により表示できないこともあります（その場合は🔗ボタンで新しいタブへ）。</div>'
+    +'</div>';
+}
+var browserHistory=['home'],browserIdx=0;
+function setBrLoading(on){var ic=document.getElementById('br-ref-icon');if(!ic)return;ic.style.animation=on?'bspin .6s linear infinite':'';ic.setAttribute('stroke',on?'#4285f4':'#5f6368');}
+function looksLikeUrl(q){
+  if(/^https?:\/\//i.test(q))return true;
+  if(/\s/.test(q))return false;
+  return /^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(q);
+}
+function resolveBrowserTarget(q){
+  if(/^https?:\/\//i.test(q))return q;
+  return 'https://'+q;
+}
+function browserGo(input){
+  var body=document.getElementById('browser-body');var urlBar=document.getElementById('browser-url');if(!body)return;
+  var q=(input||'').trim();
+  var newTabBtn=document.getElementById('br-newtab-btn');
+  if(!q||q==='home'||q==='dotos://newtab'){
+    if(urlBar)urlBar.value='dotos://newtab';
+    body.innerHTML=googleNewTab();
+    browserHistory.splice(browserIdx+1);browserHistory.push('home');browserIdx=browserHistory.length-1;
+    if(newTabBtn)newTabBtn.style.display='none';
+    return;
+  }
+  if(urlBar)urlBar.value=q;browserHistory.splice(browserIdx+1);browserHistory.push(q);browserIdx=browserHistory.length-1;
+  if(newTabBtn){newTabBtn.style.display='flex';}
+  if(!looksLikeUrl(q)){
+    var searchTarget='https://duckduckgo.com/?q='+encodeURIComponent(q);
+    _browserCurrentTarget=searchTarget;
+    if(newTabBtn)newTabBtn.href=searchTarget;
+    body.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:20px;text-align:center">'
+      +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+      +'<div style="font-size:14px;color:#202124;font-weight:600">「'+escH(q)+'」を検索</div>'
+      +'<div style="font-size:12px;color:#5f6368;max-width:360px;line-height:1.6">検索エンジンはセキュリティ設定によりこのブラウザ内には直接表示できません。下のボタンから実際の検索結果を新しいタブで開けます。</div>'
+      +'<a href="'+escH(searchTarget)+'" target="_blank" rel="noopener noreferrer" style="background:#4285f4;color:#fff;text-decoration:none;border-radius:20px;padding:10px 22px;font-size:13px;font-weight:500;margin-top:4px;display:inline-block">🔗 検索結果を開く</a>'
+      +'</div>';
+    setBrLoading(false);
+    return;
+  }
+  var target=resolveBrowserTarget(q);
+  _browserCurrentTarget=target;
+  if(newTabBtn)newTabBtn.href=target;
+  setBrLoading(true);
+  body.innerHTML='<iframe id="browser-frame" src="'+escH(target)+'" style="width:100%;height:100%;border:none" onload="setBrLoading(false)"></iframe>';
+  setTimeout(function(){setBrLoading(false);},4000);
+}
+var _browserCurrentTarget='';
+function browserNav(dir){var next=browserIdx+dir;if(next<0||next>=browserHistory.length)return;browserIdx=next;var url=browserHistory[browserIdx];var u=document.getElementById('browser-url');if(u)u.value=url==='home'?'dotos://newtab':url;browserGo(url);}
+function browserRefresh(){var cur=browserHistory[browserIdx];if(cur)browserGo(cur);}
+function buildCalc(){
+  var keys=['C','±','%','÷','7','8','9','×','4','5','6','−','1','2','3','＋','0','·','.',  '＝'];
+  var btns=keys.map(function(k,i){
+    var acc=['÷','×','−','＋','＝'].indexOf(k)>=0;var wide=k==='0';
+    return '<button onclick="calcKey(\''+k+'\')" style="grid-column:'+(wide?'span 2':'span 1')+';background:'+(acc?'#6c63ff':k==='C'?'#374151':'#2a2a3e')+';color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;padding:10px 0" onmouseover="this.style.filter=\'brightness(1.2)\'" onmouseout="this.style.filter=\'\'">'+k+'</button>';
+  }).join('');
+  return '<div style="background:#1c1c2e;height:100%;display:flex;flex-direction:column;padding:12px;gap:8px">'
+    +'<div id="calc-disp" style="background:#111;border-radius:8px;padding:14px 16px;color:#fff;font-size:36px;font-weight:300;text-align:right;min-height:68px;font-family:monospace;word-break:break-all;line-height:1.2">0</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1">'+btns+'</div></div>';
+}
+var calcS={cur:'0',prev:null,op:null,reset:false};
+function calcKey(k){
+  var d=document.getElementById('calc-disp');if(!d)return;var s=calcS;
+  if(k==='C'){s.cur='0';s.prev=null;s.op=null;s.reset=false;}
+  else if(k==='±'){s.cur=String(parseFloat(s.cur)*-1);}
+  else if(k==='%'){s.cur=String(parseFloat(s.cur)/100);}
+  else if(['÷','×','−','＋'].indexOf(k)>=0){s.prev=parseFloat(s.cur);s.op=k;s.reset=true;}
+  else if(k==='＝'){if(s.op&&s.prev!==null){var a=s.prev,b=parseFloat(s.cur);var r=s.op==='÷'?a/b:s.op==='×'?a*b:s.op==='−'?a-b:a+b;s.cur=String(parseFloat(r.toFixed(10)));s.op=null;s.prev=null;s.reset=false;}}
+  else if(k==='.'){if(s.reset){s.cur='0.';s.reset=false;}else if(s.cur.indexOf('.')<0)s.cur+='.';}
+  else if(k!=='·'){if(s.cur==='0'||s.reset){s.cur=k;s.reset=false;}else s.cur+=k;}
+  d.textContent=s.cur.length>10?parseFloat(s.cur).toExponential(4):s.cur;
+}
+function buildNotes(){
+  var key='vos_notes_'+(currentUser&&currentUser.user||'guest');
+  var saved=localStorage.getItem(key)||'メモ帳へようこそ！\nここに自由にメモを書けます。';
+  return '<div style="height:100%;display:flex;flex-direction:column">'
+    +'<div class="etb" style="background:#fef9c3;flex-shrink:0">'
+    +'<button class="ebtn" style="color:#713f12" onclick="notesNew()">新規</button>'
+    +'<button class="ebtn" id="notes-save-btn" style="color:#713f12" onclick="noteSave()">保存</button>'
+    +'<span style="font-size:10px;color:#92400e;margin-left:6px">Ctrl+S</span></div>'
+    +'<textarea id="notes-ta" style="flex:1;background:#fefce8;color:#713f12;border:none;outline:none;padding:12px;font-size:13px;resize:none;line-height:1.8;user-select:text;font-family:inherit" placeholder="メモを入力..." onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'s\'){event.preventDefault();noteSave();}">'+escH(saved)+'</textarea></div>';
+}
+function noteSave(){
+  var ta=document.getElementById('notes-ta');if(!ta)return;
+  var key='vos_notes_'+(currentUser&&currentUser.user||'guest');localStorage.setItem(key,ta.value);
+  var btn=document.getElementById('notes-save-btn');if(btn){btn.textContent='✓ 保存';setTimeout(function(){btn.textContent='保存';},1200);}
+}
+async function notesNew(){
+  if(!(await customConfirm('消去しますか？')))return;
+  var ta=document.getElementById('notes-ta');if(ta)ta.value='';
+  localStorage.removeItem('vos_notes_'+(currentUser&&currentUser.user||'guest'));
+}
+var _asCategory='すべて';
+var _asSearchTerm='';
+var _asShowR18=false;
+var _asSort='dl';
+function buildAppStore(){
+  _asCategory='すべて';_asSearchTerm='';_asShowR18=false;_asSort='dl';
+  var apps=getStoreAppsSync();var installed=getInstalledIds();
+  var canUpload=hasPerm('app_upload');
+  var CATS=['すべて','ゲーム','アクション','RPG','パズル','シューティング','音ゲー','カード','ボード','シミュレーション','スポーツゲーム','レース','クイズ','脱出ゲーム','エンタメ','動画','音楽','アニメ','マンガ','写真','SNS','仕事効率化','教育','ビジネス','ユーティリティ','ツール','ライフスタイル','健康','天気','ニュース','旅行','グルメ','ショッピング','デザイン','プログラミング'];
+  var tabsHtml=CATS.map(function(c){return '<div class="as-tab'+(c==='すべて'?' active':'')+'" data-cat="'+escH(c)+'" onclick="asFilterCat(\''+escH(c)+'\')">'+escH(c)+'</div>';}).join('');
+  var rankHtml='';
+  var sorted=apps.slice().sort(function(a,b){return (b.dl||0)-(a.dl||0);});
+  sorted.slice(0,15).forEach(function(a,i){
+    var numClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    var stars=a.rating?'★'+a.rating.toFixed(1):'';
+    rankHtml+='<div class="as-rank-item" onclick="asScrollTo(\''+a.id+'\')">'
+      +'<div class="as-rank-num '+numClass+'">'+(i+1)+'</div>'
+      +'<div class="as-rank-name">'+escH(a.name)+'</div>'
+      +'<div class="as-rank-stats">'+(a.dl||0)+' DL'+(stars?' <span style="color:#f59e0b">'+stars+'</span>':'')+'</div>'
+      +'</div>';
+  });
+  if(!rankHtml)rankHtml='<div style="padding:12px;font-size:11px;color:#9ca3af">アプリがありません</div>';
+  var cardsHtml='';
+  apps.forEach(function(a){
+    var isInst=installed.indexOf(a.id)>=0;
+    var tagsHtml=(a.tags||[]).map(function(t){return '<span class="store-tag">'+escH(t)+'</span>';}).join('');
+    var stars=a.rating?'<span class="store-star">★'+a.rating.toFixed(1)+'</span>':'';
+    var dlTxt=a.dl?(a.dl+' DL'):'';
+    var isR18=(a.tags||[]).indexOf('R18')>=0;
+    cardsHtml+='<div class="store-card" id="as-card-'+a.id+'" data-name="'+escH((a.name||'').toLowerCase())+'" data-author="'+escH((a.author||'').toLowerCase())+'" data-cats="'+escH((a.tags||[]).join(','))+'" data-r18="'+(isR18?'1':'0')+'">'
+      +'<div style="display:flex;align-items:flex-start;gap:12px">'
+      +'<div class="store-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="store-name">'+escH(a.name)+'</div>'
+      +'<div class="store-author">@'+escH(a.author||'unknown')+'</div>'
+      +'<div class="store-stats">'+stars+'<span>'+dlTxt+'</span></div>'
+      +'</div></div>'
+      +(tagsHtml?'<div class="store-tags">'+tagsHtml+'</div>':'')
+      +'<div class="store-desc">'+(a.desc?escH(a.desc):'説明が提供されていないカスタムアプリ。')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-top:4px" data-btnrow>'
+      +(isInst
+        ?'<button class="inst-btn" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;width:100%;justify-content:center" onclick="uninstallApp(\''+a.id+'\')">✕ アンインストール</button>'
+        :'<button class="inst-btn" style="width:100%;justify-content:center" onclick="asInstall(\''+a.id+'\')">⬇ 導入</button>')
+      +(hasPerm('app_delete')?'<button onclick="delStoreApp(\''+a.id+'\')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:11px;flex-shrink:0">削除</button>':'')
+      +'</div>'
+      +'</div>';
+  });
+  if(!cardsHtml)cardsHtml='<div style="color:#9ca3af;font-size:13px;text-align:center;padding:40px 0;grid-column:1/-1">アプリがありません</div>';
+  var pubBtn=canUpload
+    ?'<button onclick="asShowUpload()" style="background:#6c63ff;color:#fff;border:none;border-radius:20px;padding:8px 18px;font-size:12px;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:6px;flex-shrink:0;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>公開</button>'
+    :'';
+  var sortSel='<select onchange="asSortChange(this.value)" style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:20px;padding:6px 12px;font-size:12px;outline:none;cursor:pointer;flex-shrink:0;white-space:nowrap">'
+    +'<option value="dl">🏆 人気順</option>'
+    +'<option value="new">🆕 新着順</option>'
+    +'<option value="rating">⭐ 評価順</option>'
+    +'</select>';
+  return '<div style="height:100%;display:flex;flex-direction:column;background:#f9fafb">'
+    +'<div style="background:#fff;border-bottom:1px solid #e5e7eb;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0">'
+    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>'
+    +'<span style="font-size:15px;font-weight:700;color:#1f2937;white-space:nowrap;flex-shrink:0">App Store</span>'
+    +'<div style="flex:1;min-width:40px;background:#f3f4f6;border-radius:20px;padding:7px 14px;display:flex;align-items:center;gap:8px;margin:0 8px">'
+    +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    +'<input id="as-search" placeholder="アプリ・タグ・開発者で検索..." style="border:none;background:transparent;outline:none;font-size:12px;color:#374151;flex:1;min-width:0;user-select:text" oninput="asSearch(this.value)">'
+    +'</div>'
+    +sortSel
+    +'<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#6b7280;cursor:pointer;flex-shrink:0;white-space:nowrap"><input type="checkbox" id="as-r18" onchange="asToggleR18(this.checked)" style="accent-color:#6c63ff"> R18</label>'
+    +pubBtn
+    +'</div>'
+    +'<div style="background:#fff;border-bottom:1px solid #e5e7eb;display:flex;overflow-x:auto;flex-shrink:0;padding:0 8px">'
+    +tabsHtml
+    +'</div>'
+    +'<div style="flex:1;display:flex;overflow:hidden">'
+    +'<div class="as-sidebar">'
+    +'<div style="padding:10px 14px;font-size:10px;font-weight:700;color:#9ca3af;letter-spacing:.08em;display:flex;align-items:center;gap:6px">🏆 TOP RANKING</div>'
+    +rankHtml
+    +'</div>'
+    +'<div style="flex:1;overflow-y:auto">'
+    +'<div id="as-count" style="padding:12px 16px;font-size:13px;color:#6b7280;border-bottom:1px solid #f0f0f0">'+apps.length+' 件</div>'
+    +'<div class="as-grid" id="as-grid">'+cardsHtml+'</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+}
+function asInstall(id){
+  installApp(id);
+  var card=document.getElementById('as-card-'+id);
+  if(card){refreshStoreCardBtn(card,id,true);pulseCard(card);}
+  showToast('✓ インストールしました');
+}
+function pulseCard(card){
+  card.classList.remove('as-pulse');
+  void card.offsetWidth;
+  card.classList.add('as-pulse');
+  setTimeout(function(){card.classList.remove('as-pulse');},650);
+}
+function showToast(msg){
+  var el=document.getElementById('vos-toast');
+  if(el)el.remove();
+  el=document.createElement('div');
+  el.id='vos-toast';el.className='vos-toast';el.textContent=msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){el.classList.add('show');});
+  setTimeout(function(){el.classList.remove('show');setTimeout(function(){el.remove();},250);},1800);
+}
+function asApplyFilters(){
+  var term=(_asSearchTerm||'').trim().toLowerCase();
+  var visibleCount=0;
+  document.querySelectorAll('#as-grid .store-card').forEach(function(c){
+    var cats=(c.dataset.cats||'');
+    var catOk=_asCategory==='すべて'||cats.split(',').indexOf(_asCategory)>=0;
+    var searchOk=!term||(c.dataset.name||'').indexOf(term)>=0||(c.dataset.author||'').indexOf(term)>=0||cats.toLowerCase().indexOf(term)>=0;
+    var r18Ok=_asShowR18||c.dataset.r18!=='1';
+    var show=catOk&&searchOk&&r18Ok;
+    c.style.display=show?'':'none';
+    if(show)visibleCount++;
+  });
+  var cnt=document.getElementById('as-count');if(cnt)cnt.textContent=visibleCount+' 件';
+}
+function asFilterCat(cat){
+  _asCategory=cat;
+  document.querySelectorAll('.as-tab').forEach(function(t){t.classList.toggle('active',t.getAttribute('data-cat')===cat);});
+  asApplyFilters();
+}
+function asSearch(q){
+  _asSearchTerm=q||'';
+  asApplyFilters();
+}
+function asToggleR18(checked){
+  _asShowR18=!!checked;
+  asApplyFilters();
+}
+function asSortChange(val){
+  _asSort=val;
+  var grid=document.getElementById('as-grid');if(!grid)return;
+  var cards=Array.from(grid.querySelectorAll('.store-card'));
+  cards.sort(function(a,b){
+    var ia=a.id.replace('as-card-',''),ib=b.id.replace('as-card-','');
+    var aa=getStoreAppsSync().find(function(x){return x.id===ia;})||{};
+    var ab=getStoreAppsSync().find(function(x){return x.id===ib;})||{};
+    if(val==='dl')return (ab.dl||0)-(aa.dl||0);
+    if(val==='rating')return (ab.rating||0)-(aa.rating||0);
+    if(val==='new')return (ab.uploadedAt||'')>(aa.uploadedAt||'')?1:-1;
+    return 0;
+  });
+  cards.forEach(function(c){grid.appendChild(c);});
+}
+function asScrollTo(id){
+  var c=document.getElementById('as-card-'+id);if(c)c.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function asShowUpload(){
+  var wc=document.getElementById('wc-appstore');if(!wc)return;
+  var existing=document.getElementById('as-upload-panel');if(existing)existing.remove();
+  var panel=document.createElement('div');
+  panel.id='as-upload-panel';
+  panel.style.cssText='position:absolute;inset:0;background:#fff;z-index:20;display:flex;flex-direction:column;overflow:hidden';
+  var S='border:1px solid #d1d5db;border-radius:8px;padding:8px 12px;font-size:12px;outline:none;user-select:text;display:block;width:100%;box-sizing:border-box';
+  var files=getAppFiles();
+  var fileListHtml=files.length
+    ?files.map(function(f){
+      return '<div class="as-file-pick" data-name="'+escH(f.name)+'" onclick="asPickFile(\''+escH(f.name)+'\')" style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;color:#374151;transition:border-color .1s,background .1s">'
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+        +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escH(f.name)+'</span>'
+        +'<span style="font-size:10px;color:#9ca3af;flex-shrink:0">'+escH(f.lang)+'</span>'
+        +'</div>';
+    }).join('')
+    :'<div style="font-size:11px;color:#9ca3af;padding:8px 2px;line-height:1.6">app/ にファイルがありません。<br>エディタで作成して「📁 ファイルへ」で保存してから戻ってきてください。</div>';
+  var step1='<div id="as-step1" style="display:flex;flex-direction:column;gap:8px;padding:20px;overflow-y:auto;height:100%;box-sizing:border-box">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+    +'<button onclick="document.getElementById(\'as-upload-panel\').remove()" style="background:#f3f4f6;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;flex-shrink:0">←</button>'
+    +'<span style="font-size:15px;font-weight:700;color:#1f2937">アプリを公開</span>'
+    +'<span style="margin-left:auto;font-size:11px;color:#9ca3af;flex-shrink:0">STEP 1 / 2</span>'
+    +'</div>'
+    +'<div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.04em">📁 ファイルから選択</div>'
+    +'<div id="as-file-list" style="display:flex;flex-direction:column;gap:6px;height:120px;flex-shrink:0;overflow-y:auto">'+fileListHtml+'</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin:2px 0 6px">選択すると下欄に自動入力されます。手動で貼り付けることもできます。</div>'
+    +'<input id="as-up-name" placeholder="アプリ名 *" style="'+S+'">'
+    +'<textarea id="as-up-desc" placeholder="説明（任意）" rows="3" style="'+S+';resize:none"></textarea>'
+    +'<select id="as-up-lang" style="'+S+';background:#fff"><option value="html">HTML</option><option value="javascript">JavaScript</option></select>'
+    +'<textarea id="as-up-code" placeholder="コードを貼り付け... *" rows="7" style="'+S+';resize:none;font-family:monospace;font-size:11px"></textarea>'
+    +'<div id="as-up-err" style="color:#dc2626;font-size:11px;min-height:14px"></div>'
+    +'<button onclick="asGoToTagStep()" style="background:#6c63ff;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-weight:600">次へ →</button>'
+    +'</div>';
+  var TAG_OPTIONS=['ゲーム','アクション','RPG','パズル','シューティング','音ゲー','カード','ボード','シミュレーション','スポーツゲーム','レース','クイズ','脱出ゲーム','エンタメ','動画','音楽','アニメ','マンガ','写真','SNS','仕事効率化','教育','ビジネス','ユーティリティ','ツール','ライフスタイル','健康','天気','ニュース','旅行','グルメ','ショッピング','デザイン','プログラミング','R18'];
+  var tagChipsHtml=TAG_OPTIONS.map(function(t){
+    return '<div class="as-tag-chip" data-tag="'+escH(t)+'" onclick="asToggleTagChip(this)">'+escH(t)+'</div>';
+  }).join('');
+  var step2='<div id="as-step2" style="display:none;flex-direction:column;height:100%;box-sizing:border-box">'
+    +'<div style="display:flex;align-items:center;gap:8px;padding:20px 20px 4px;flex-shrink:0">'
+    +'<button onclick="asBackToFormStep()" style="background:#f3f4f6;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;flex-shrink:0">←</button>'
+    +'<span style="font-size:15px;font-weight:700;color:#1f2937">タグを選ぶ</span>'
+    +'<span style="margin-left:auto;font-size:11px;color:#9ca3af;flex-shrink:0">STEP 2 / 2</span>'
+    +'</div>'
+    +'<div style="font-size:11px;color:#9ca3af;padding:0 20px 12px">当てはまるものをいくつでも選べます（あとから変更はできません）</div>'
+    +'<div style="flex:1;overflow-y:auto;padding:0 20px">'
+    +'<div id="as-tag-chips" style="display:flex;flex-wrap:wrap;gap:8px">'+tagChipsHtml+'</div>'
+    +'</div>'
+    +'<div style="padding:14px 20px;border-top:1px solid #f0f0f0;flex-shrink:0">'
+    +'<button id="as-final-publish-btn" onclick="doAppStoreUpload2()" style="background:#6c63ff;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-weight:600;width:100%">🚀 公開する</button>'
+    +'</div>'
+    +'</div>';
+  panel.innerHTML=step1+step2;
+  wc.style.position='relative';
+  wc.appendChild(panel);
+  setTimeout(function(){var e=document.getElementById('as-up-name');if(e)e.focus();},50);
+}
+function asGoToTagStep(){
+  var name=(document.getElementById('as-up-name')&&document.getElementById('as-up-name').value||'').trim();
+  var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
+  var err=document.getElementById('as-up-err');
+  if(!name){if(err)err.textContent='アプリ名を入力してください';return;}
+  if(!code){if(err)err.textContent='コードを入力してください';return;}
+  if(err)err.textContent='';
+  var s1=document.getElementById('as-step1'),s2=document.getElementById('as-step2');
+  if(s1)s1.style.display='none';
+  if(s2)s2.style.display='flex';
+}
+function asBackToFormStep(){
+  var s1=document.getElementById('as-step1'),s2=document.getElementById('as-step2');
+  if(s2)s2.style.display='none';
+  if(s1)s1.style.display='flex';
+}
+function asToggleTagChip(el){el.classList.toggle('selected');}
+function asPickFile(name){
+  var f=getAppFiles().find(function(x){return x.name===name;});if(!f)return;
+  var nameInput=document.getElementById('as-up-name');
+  var langSel=document.getElementById('as-up-lang');
+  var codeTa=document.getElementById('as-up-code');
+  if(nameInput&&!nameInput.value.trim()){nameInput.value=f.name.replace(/\.[^.]+$/,'');}
+  if(langSel)langSel.value=f.lang==='javascript'?'javascript':'html';
+  if(codeTa)codeTa.value=f.code;
+  document.querySelectorAll('.as-file-pick').forEach(function(el){
+    var picked=el.getAttribute('data-name')===name;
+    el.style.borderColor=picked?'#6c63ff':'#e5e7eb';
+    el.style.background=picked?'rgba(108,99,255,.06)':'';
+  });
+}
+async function doAppStoreUpload2(){
+  var name=(document.getElementById('as-up-name')&&document.getElementById('as-up-name').value||'').trim();
+  var desc=(document.getElementById('as-up-desc')&&document.getElementById('as-up-desc').value||'').trim();
+  var tags=Array.from(document.querySelectorAll('.as-tag-chip.selected')).map(function(el){return el.getAttribute('data-tag');});
+  var lang=(document.getElementById('as-up-lang')&&document.getElementById('as-up-lang').value)||'html';
+  var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
+  if(!name||!code)return;
+  var btn=document.getElementById('as-final-publish-btn');
+  if(btn){btn.disabled=true;btn.textContent='公開中...';}
+  var apps=getStoreAppsSync();
+  var id='uapp_'+Date.now();
+  apps.push({id:id,name:name,desc:desc,tags:tags,code:code,lang:lang,author:currentUser&&currentUser.user,dl:0,rating:0,uploadedAt:new Date().toISOString()});
+  await saveStoreApps(apps);
+  renderHomeIcons();renderDrawerIcons();
+  var wc=document.getElementById('wc-appstore');
+  if(wc){wc.innerHTML=buildAppStore();}
+  showToast('🚀 公開しました！');
+  var newCard=document.getElementById('as-card-'+id);
+  if(newCard)pulseCard(newCard);
+}
+async function delStoreApp(id){
+  if(!hasPerm('app_delete')){await customConfirm('削除権限がありません');return;}
+  if(!(await customConfirm('このアプリを削除しますか？')))return;
+  await saveStoreApps(getStoreAppsSync().filter(function(a){return a.id!==id;}));
+  renderHomeIcons();var wc=document.getElementById('wc-appstore');if(wc)wc.innerHTML=buildAppStore();
+  showToast('✓ 削除しました');
+}
+function buildUserApp(sd){
+  if(!sd)return '<div style="padding:16px">エラー</div>';
+  if(sd.lang==='html'){
+    return '<iframe srcdoc="'+escH(sd.code)+'" style="width:100%;height:100%;border:none;display:block"></iframe>';
+  }
+  if(sd.lang==='javascript'){
+    var appId='uapp_run_'+sd.id;
+    var logs=[];
+    var fakeConsole={log:function(){logs.push(Array.from(arguments).map(function(a){try{return typeof a==='object'?JSON.stringify(a,null,2):String(a);}catch(e){return String(a);}}).join(' '));},
+      error:function(){logs.push('<span style="color:#ff5f5f">'+Array.from(arguments).join(' ')+'</span>');},
+      warn:function(){logs.push('<span style="color:#ffd93d">'+Array.from(arguments).join(' ')+'</span>');}};
+    var resultHtml='';
+    try{var fn=new Function('console',sd.code);fn(fakeConsole);
+      resultHtml=logs.length?logs.map(function(l){return '<div>'+l+'</div>';}).join(''):'<span style="color:#6b7280;font-size:11px">（出力なし）</span>';
+      resultHtml='<div style="color:#00ff88;font-size:11px;margin-bottom:6px">✓ 実行完了</div>'+resultHtml;
+    }catch(err){resultHtml='<span style="color:#ff5f5f;font-size:11px">✗ エラー: '+escH(err.message)+'</span>';}
+    return '<div style="height:100%;display:flex;flex-direction:column;background:#1e1e2e">'
+      +'<div class="etb"><span style="color:#6c63ff;font-size:11px">'+escH(sd.name)+'</span>'
+      +'<button class="ebtn run" style="margin-left:auto" onclick="rerunUserApp(\''+sd.id+'\')">▶ 再実行</button></div>'
+      +'<div id="uapp-out-'+sd.id+'" style="flex:1;padding:12px;font-family:\'Courier New\',monospace;font-size:12px;line-height:1.7;color:#d4d4d4;overflow-y:auto">'+resultHtml+'</div></div>';
+  }
+  return '<div style="height:100%;display:flex;flex-direction:column;background:#1e1e2e">'
+    +'<div class="etb"><span style="color:#6c63ff;font-size:11px">'+escH(sd.name)+' ('+escH(sd.lang)+')</span></div>'
+    +'<div style="flex:1;padding:12px;overflow-y:auto"><pre style="font-family:\'Courier New\',monospace;font-size:12px;line-height:1.7;color:#d4d4d4;white-space:pre-wrap;user-select:text">'+escH(sd.code)+'</pre></div></div>';
+}
+function rerunUserApp(appId){
+  var sd=getStoreAppsSync().find(function(a){return a.id===appId;});
+  var out=document.getElementById('uapp-out-'+appId);if(!sd||!out)return;
+  var logs=[];
+  var fakeConsole={log:function(){logs.push(Array.from(arguments).map(function(a){try{return typeof a==='object'?JSON.stringify(a,null,2):String(a);}catch(e){return String(a);}}).join(' '));},
+    error:function(){logs.push('<span style="color:#ff5f5f">'+Array.from(arguments).join(' ')+'</span>');},
+    warn:function(){logs.push('<span style="color:#ffd93d">'+Array.from(arguments).join(' ')+'</span>');}};
+  var resultHtml='';
+  try{var fn=new Function('console',sd.code);fn(fakeConsole);
+    resultHtml=logs.length?logs.map(function(l){return '<div>'+l+'</div>';}).join(''):'<span style="color:#6b7280;font-size:11px">（出力なし）</span>';
+    resultHtml='<div style="color:#00ff88;font-size:11px;margin-bottom:6px">✓ 実行完了</div>'+resultHtml;
+  }catch(err){resultHtml='<span style="color:#ff5f5f;font-size:11px">✗ エラー: '+escH(err.message)+'</span>';}
+  out.innerHTML=resultHtml;
+}
+function buildAdmin(){
+  if(!hasPerm('admin_panel'))return '<div style="padding:20px;color:#dc2626">アクセス拒否: 管理者権限が必要です</div>';
+  var canManageUsers=hasPerm('user_manage');
+  var canDeleteApps=hasPerm('app_delete');
+  var html='<div style="padding:16px 8px;overflow-y:auto;height:100%"><div style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:14px;padding:0 8px">🛡 管理者パネル</div>'
+    +'<div class="adm-grid">'
+    +'<div class="adm-sec"><h4>👥 ユーザー管理</h4>'
+    +(canManageUsers?'':'<div style="font-size:11px;color:#9ca3af;margin-bottom:8px">表示のみ（編集には特権管理者権限が必要です）</div>');
+  accounts.forEach(function(a){
+    var cls=a.role==='特権管理者'?'a':a.role==='管理者'?'m':'u';
+    var isSelf=currentUser&&a.user===currentUser.user;
+    html+='<div class="urow"><span style="font-size:13px;color:#374151;flex:1">'+escH(a.user)+'</span>'
+      +'<span class="rbadge '+cls+'">'+a.role+'</span>';
+    if(isSelf){
+      html+='<span style="font-size:10px;color:#9ca3af;margin-left:8px">(自分)</span>';
+    }else if(a.user==='admin'){
+      html+='<span style="font-size:10px;color:#9ca3af;margin-left:8px">(保護)</span>';
+    }else if(canManageUsers){
+      html+='<select onchange="changeRole(\''+a.user+'\',this.value)" style="border:1px solid #fca5a5;border-radius:6px;padding:3px 6px;font-size:11px;color:#374151;background:#fff;margin-left:8px">'
+        +['特権管理者','管理者','ユーザー','ゲスト'].map(function(r){return '<option value="'+r+'"'+(r===a.role?' selected':'')+'>'+r+'</option>';}).join('')
+        +'</select>'
+        +'<button onclick="deleteUser(\''+a.user+'\')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;margin-left:6px">削除</button>';
+    }
+    html+='</div>';
+  });
+  html+='</div><div class="adm-sec"><h4>📦 App Store</h4>'
+    +'<div style="font-size:12px;color:#374151;margin-bottom:8px">登録アプリ: '+getStoreAppsSync().length+'件</div>'
+    +(canDeleteApps?'<button onclick="clearStore()" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px">全アプリ削除</button>':'')+'</div>'
+    +'<div class="adm-sec" style="flex-basis:100%"><h4>🔐 ロール権限</h4>'
+    +'<div class="adm-perm-grid">'
+    +Object.keys(PERMS).map(function(r){return '<div><span class="rbadge '+(r==='特権管理者'?'a':r==='管理者'?'m':'u')+'" style="display:inline-block;margin-bottom:3px">'+r+'</span><div style="font-size:11px;color:#6b7280">'+(PERMS[r].join(' • ')||'なし')+'</div></div>';}).join('')
+    +'</div>'
+    +'</div></div></div>';
+  return html;
+}
+async function changeRole(username,role){
+  if(!hasPerm('user_manage')){await customAlert('権限がありません');return;}
+  if(currentUser&&username===currentUser.user){await customAlert('自分自身の役職は変更できません');return;}
+  var i=accounts.findIndex(function(a){return a.user===username;});if(i<0)return;
+  accounts[i].role=role;await saveAccounts();var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
+}
+async function deleteUser(username){
+  if(!hasPerm('user_manage')){await customAlert('権限がありません');return;}
+  if(!(await customConfirm(username+' を削除しますか？')))return;
+  accounts=accounts.filter(function(a){return a.user!==username;});await saveAccounts();
+  var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
+  if(currentUser&&currentUser.user===username){doLogout();}
+}
+async function clearStore(){
+  if(!hasPerm('app_delete')){await customAlert('権限がありません');return;}
+  if(!(await customConfirm('全アプリを削除しますか？')))return;
+  await saveStoreApps([]);_storeCache=[];renderHomeIcons();var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
+}
+</script>
+</body>
+</html>
