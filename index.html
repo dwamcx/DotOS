@@ -209,6 +209,8 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .ctx-item.danger:hover{background:#fee2e2}
 .ctx-sep{height:1px;background:#f0f0f0;margin:3px 4px}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div id="boot">
@@ -261,10 +263,41 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
   'ゲスト':[]
 };
 function hasPerm(p){return(PERMS[currentUser&&currentUser.role||'ゲスト']||[]).includes(p);}
+async function sha256Hex(str){
+  try{
+    var buf=new TextEncoder().encode(str);
+    var hash=await crypto.subtle.digest('SHA-256',buf);
+    return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }catch(e){
+    var h=0;for(var i=0;i<str.length;i++){h=(h<<5)-h+str.charCodeAt(i);h|=0;}
+    return 'fb_'+Math.abs(h).toString(16);
+  }
+}
+var FIREBASE_CONFIG={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};
+var _fbDb=null,_fbReady=false;
+(function initFirebaseIfConfigured(){
+  if(typeof firebase==='undefined')return;
+  if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId)return;
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _fbDb=firebase.firestore();
+    _fbReady=true;
+  }catch(e){}
+})();
 async function onlineGet(key){
-  try{var r=await window.storage.get(key,true);return r?JSON.parse(r.value):null;}catch(e){return null;}
+  if(_fbReady){
+    try{
+      var doc=await _fbDb.collection('dotos').doc(key).get();
+      if(doc.exists)return doc.data().value;
+    }catch(e){}
+  }
+  try{var r=await window.storage.get(key,true);return r?JSON.parse(r.value):null;}catch(e){}
+  return null;
 }
 async function onlineSet(key,val){
+  if(_fbReady){
+    try{await _fbDb.collection('dotos').doc(key).set({value:val});return;}catch(e){}
+  }
   try{await window.storage.set(key,JSON.stringify(val),true);}catch(e){}
 }
 var accounts=[];
@@ -283,7 +316,7 @@ async function loadAccounts(){
     } catch(e){}
   }
   if(!accounts.length){
-    accounts=[{user:'admin',pass:'admin',role:'特権管理者'}];
+    accounts=[{user:'admin',pass:await sha256Hex('admin'),role:'特権管理者'}];
   }
   await saveAccounts();
 }
@@ -298,8 +331,7 @@ function showSignIn(){
     +'<input class="l-input" id="si-pass" type="password" placeholder="パスワード" onkeydown="if(event.key===\'Enter\')doSignIn()">'
     +'<div class="l-err" id="si-err"></div>'
     +'<button class="l-btn" onclick="doSignIn()">ログイン</button>'
-    +'<span class="l-link" onclick="showRegister()">新規アカウント登録</span>'
-    +'<span class="l-link" style="color:rgba(255,255,255,.25);font-size:10px" onclick="resetAccounts()">リセット</span></div></div>';
+    +'<span class="l-link" onclick="showRegister()">新規アカウント登録</span></div></div>';
   setTimeout(function(){var e=document.getElementById('si-user');if(e)e.focus();},60);
 }
 async function doSignIn(){
@@ -308,8 +340,12 @@ async function doSignIn(){
   var err=document.getElementById('si-err');
   if(err)err.textContent='確認中...';
   await loadAccounts();
+  var hashedP=await sha256Hex(p);
   var acct=accounts.find(function(a){return a.user===u;});
-  if(!acct||acct.pass!==p){if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
+  if(acct&&acct.pass===p&&acct.pass!==hashedP){
+    acct.pass=hashedP;await saveAccounts();
+  }
+  if(!acct||acct.pass!==hashedP){if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
   currentUser=acct;
   var ls=document.getElementById('login-screen');
   ls.classList.add('out');
@@ -337,7 +373,7 @@ async function doRegister(){
   var fresh=await onlineGet('vos_accounts');
   if(Array.isArray(fresh)&&fresh.length)accounts=fresh;
   if(accounts.find(function(a){return a.user===u;})){if(err)err.textContent='そのユーザー名は使用中です';return;}
-  accounts.push({user:u,pass:p,role:'ユーザー'});
+  accounts.push({user:u,pass:await sha256Hex(p),role:'ユーザー'});
   await saveAccounts();
   if(err){err.style.color='#00d4aa';err.textContent='作成しました！ログイン中...';}
   setTimeout(function(){
@@ -354,7 +390,7 @@ async function doRegister(){
     },600);
   },800);
 }
-async function resetAccounts(){if(!(await customConfirm('リセットしますか？')))return;accounts=[{user:'admin',pass:'admin',role:'特権管理者'}];try{localStorage.removeItem('vos_accounts');}catch(e){}try{await window.storage.delete('vos_accounts',true);}catch(e){}await saveAccounts();showSignIn();}
+
 function doLogout(){
   Object.keys(wins).forEach(function(id){var el=document.getElementById('w-'+id);if(el)el.remove();delete wins[id];});
   updateShelf();currentUser=null;
@@ -782,7 +818,6 @@ function showSettingsPage(){
   var wpHtml=hasPerm('wallpaper')?
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
     +'<div onclick="setWallpaper(\'gradient\',\''+DEFAULT_WP_CSS+'\',null)" title="デフォルトに戻す" style="width:56px;height:40px;border-radius:8px;background:'+DEFAULT_WP_CSS+';border:2px solid '+(curWp==='gradient'?'#6c63ff':'#e5e7eb')+';flex-shrink:0;cursor:pointer"></div>'
-    +'<span style="font-size:11px;color:#9ca3af">クリックでデフォルトに戻す</span>'
     +'</div>'
     +'<button onclick="document.getElementById(\'wp-fi\').click()" style="background:#6c63ff;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">📁 画像から選択</button>'
     +'<input id="wp-fi" type="file" accept="image/*" style="position:fixed;left:-9999px;opacity:0" onchange="loadWallpaperFile(this)">'
@@ -813,10 +848,12 @@ async function changePw(){
   var nw=document.getElementById('pw-new')&&document.getElementById('pw-new').value||'';
   var nw2=document.getElementById('pw-new2')&&document.getElementById('pw-new2').value||'';
   var err=document.getElementById('pw-err');if(!currentUser)return;
-  if(cur!==currentUser.pass){if(err)err.textContent='現在のパスワードが違います';return;}
+  var hashedCur=await sha256Hex(cur);
+  if(hashedCur!==currentUser.pass){if(err)err.textContent='現在のパスワードが違います';return;}
   if(!nw){if(err)err.textContent='新しいパスワードを入力';return;}
   if(nw!==nw2){if(err)err.textContent='パスワードが一致しません';return;}
-  currentUser.pass=nw;var i=accounts.findIndex(function(a){return a.user===currentUser.user;});if(i>=0)accounts[i].pass=nw;await saveAccounts();
+  var hashedNew=await sha256Hex(nw);
+  currentUser.pass=hashedNew;var i=accounts.findIndex(function(a){return a.user===currentUser.user;});if(i>=0)accounts[i].pass=hashedNew;await saveAccounts();
   if(err){err.style.color='#16a34a';err.textContent='変更しました！';setTimeout(function(){err.textContent='';err.style.color='#dc2626';},2000);}
 }
 async function deleteSelfAccount(){
@@ -1341,16 +1378,26 @@ function buildBrowser(){
     +'<a id="br-newtab-btn" href="#" target="_blank" rel="noopener noreferrer" title="新しいタブで開く（サイトによってはここでの表示が許可されていません）" style="background:none;border:none;cursor:pointer;padding:4px;display:none;flex-shrink:0;color:inherit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
     +'</div><div id="browser-body" style="flex:1;overflow:hidden;position:relative">'+googleNewTab()+'</div></div>';
 }
+var SEARCH_ENGINES={
+  google:{label:'Google',url:'https://www.google.com/search?q='},
+  bing:{label:'Bing',url:'https://www.bing.com/search?q='},
+  yahoo:{label:'Yahoo! JAPAN',url:'https://search.yahoo.co.jp/search?p='},
+  duckduckgo:{label:'DuckDuckGo',url:'https://duckduckgo.com/?q='}
+};
+function currentSearchEngine(){var k=localStorage.getItem('vos_search_engine');return SEARCH_ENGINES[k]?k:'google';}
+function setSearchEngine(k){if(SEARCH_ENGINES[k])localStorage.setItem('vos_search_engine',k);}
 function googleNewTab(){
+  var engKey=currentSearchEngine();
+  var engOptsHtml=Object.keys(SEARCH_ENGINES).map(function(k){return '<option value="'+k+'"'+(k===engKey?' selected':'')+'>'+SEARCH_ENGINES[k].label+'</option>';}).join('');
   return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#fff;padding:20px">'
     +'<div style="font-size:60px;font-weight:700;margin-bottom:20px;letter-spacing:-2px"><span style="color:#4285f4">G</span><span style="color:#ea4335">o</span><span style="color:#fbbc05">o</span><span style="color:#4285f4">g</span><span style="color:#34a853">l</span><span style="color:#ea4335">e</span></div>'
     +'<div style="display:flex;align-items:center;border:1px solid #dfe1e5;border-radius:24px;padding:10px 18px;width:480px;max-width:90%;box-shadow:0 1px 6px rgba(32,33,36,.1);gap:8px;background:#fff">'
     +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
     +'<input id="g-main-search" style="flex:1;border:none;outline:none;font-size:16px;color:#202124;user-select:text" placeholder="検索、またはURLを入力" onkeydown="if(event.key===\'Enter\'&&this.value.trim()){var v=this.value.trim();document.getElementById(\'browser-url\').value=v;browserGo(v);}"></div>'
-    +'<div style="display:flex;gap:12px;margin-top:20px">'
+    +'<div style="display:flex;gap:12px;margin-top:20px;align-items:center">'
     +'<button onclick="var q=document.getElementById(\'g-main-search\')&&document.getElementById(\'g-main-search\').value&&document.getElementById(\'g-main-search\').value.trim();if(q){document.getElementById(\'browser-url\').value=q;browserGo(q);}" style="background:#f8f9fa;border:1px solid #f8f9fa;border-radius:4px;padding:9px 16px;font-size:14px;color:#3c4043;cursor:pointer">検索</button>'
+    +'<select onchange="setSearchEngine(this.value)" style="border:1px solid #dfe1e5;border-radius:4px;padding:9px 10px;font-size:12px;color:#3c4043;background:#fff;cursor:pointer">'+engOptsHtml+'</select>'
     +'</div>'
-    +'<div style="font-size:11px;color:#9aa0a6;margin-top:22px;text-align:center;max-width:420px;line-height:1.6">検索語を入力すると実際の検索結果を新しいタブで開きます。URLを入力した場合はこの中に直接表示を試みますが、サイトのセキュリティ設定により表示できないこともあります（その場合は🔗ボタンで新しいタブへ）。</div>'
     +'</div>';
 }
 var browserHistory=['home'],browserIdx=0;
@@ -1378,16 +1425,16 @@ function browserGo(input){
   if(urlBar)urlBar.value=q;browserHistory.splice(browserIdx+1);browserHistory.push(q);browserIdx=browserHistory.length-1;
   if(newTabBtn){newTabBtn.style.display='flex';}
   if(!looksLikeUrl(q)){
-    var searchTarget='https://duckduckgo.com/?q='+encodeURIComponent(q);
+    var eng=SEARCH_ENGINES[currentSearchEngine()];
+    var searchTarget=eng.url+encodeURIComponent(q);
     _browserCurrentTarget=searchTarget;
     if(newTabBtn)newTabBtn.href=searchTarget;
-    body.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:20px;text-align:center">'
-      +'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-      +'<div style="font-size:14px;color:#202124;font-weight:600">「'+escH(q)+'」を検索</div>'
-      +'<div style="font-size:12px;color:#5f6368;max-width:360px;line-height:1.6">検索エンジンはセキュリティ設定によりこのブラウザ内には直接表示できません。下のボタンから実際の検索結果を新しいタブで開けます。</div>'
-      +'<a href="'+escH(searchTarget)+'" target="_blank" rel="noopener noreferrer" style="background:#4285f4;color:#fff;text-decoration:none;border-radius:20px;padding:10px 22px;font-size:13px;font-weight:500;margin-top:4px;display:inline-block">🔗 検索結果を開く</a>'
-      +'</div>';
-    setBrLoading(false);
+    body.innerHTML=browserSearchLoadingHtml(q);
+    setBrLoading(true);
+    fetchInstantAnswer(q).then(function(ans){
+      body.innerHTML=browserSearchResultHtml(q,eng,searchTarget,ans);
+      setBrLoading(false);
+    });
     return;
   }
   var target=resolveBrowserTarget(q);
@@ -1396,6 +1443,47 @@ function browserGo(input){
   setBrLoading(true);
   body.innerHTML='<iframe id="browser-frame" src="'+escH(target)+'" style="width:100%;height:100%;border:none" onload="setBrLoading(false)"></iframe>';
   setTimeout(function(){setBrLoading(false);},4000);
+}
+function browserSearchLoadingHtml(q){
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:20px;text-align:center">'
+    +'<div style="width:32px;height:32px;border-radius:50%;border:3px solid #e8eaed;border-top-color:#4285f4;animation:bspin .7s linear infinite"></div>'
+    +'<div style="font-size:13px;color:#5f6368">「'+escH(q)+'」を調べています...</div>'
+    +'</div>';
+}
+function fetchInstantAnswer(q){
+  var url='https://api.duckduckgo.com/?q='+encodeURIComponent(q)+'&format=json&no_html=1&skip_disambig=1&t=dotos';
+  return fetch(url).then(function(r){return r.json();}).catch(function(){return null;});
+}
+function browserSearchResultHtml(q,eng,searchTarget,ans){
+  var openBtn='<a href="'+escH(searchTarget)+'" target="_blank" rel="noopener noreferrer" style="background:#4285f4;color:#fff;text-decoration:none;border-radius:20px;padding:9px 20px;font-size:13px;font-weight:500;display:inline-block">🔗 '+escH(eng.label)+'で全ての検索結果を見る</a>';
+  var summary='';
+  if(ans){
+    var text=ans.AbstractText||ans.Definition||ans.Answer||'';
+    var source=ans.AbstractSource||ans.DefinitionSource||'';
+    var link=ans.AbstractURL||ans.DefinitionURL||'';
+    if(text){
+      summary='<div style="background:#f8f9fa;border-radius:12px;padding:16px 18px;text-align:left;max-width:520px;margin:0 auto 16px">'
+        +'<div style="font-size:11px;color:#9aa0a6;margin-bottom:6px;letter-spacing:.04em">📖 '+(source?escH(source):'要約')+'</div>'
+        +'<div style="font-size:14px;color:#202124;line-height:1.7">'+escH(text)+'</div>'
+        +(link?'<a href="'+escH(link)+'" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1a73e8;text-decoration:none;display:inline-block;margin-top:8px">出典を見る →</a>':'')
+        +'</div>';
+    }
+    var related=(ans.RelatedTopics||[]).filter(function(t){return t.Text&&t.FirstURL;}).slice(0,5);
+    if(related.length){
+      summary+='<div style="max-width:520px;margin:0 auto 16px;text-align:left">'
+        +'<div style="font-size:11px;color:#9aa0a6;margin-bottom:6px;letter-spacing:.04em">🔗 関連トピック</div>'
+        +related.map(function(t){
+          return '<a href="'+escH(t.FirstURL)+'" target="_blank" rel="noopener noreferrer" style="display:block;font-size:13px;color:#1a73e8;text-decoration:none;padding:6px 0;border-bottom:1px solid #f0f0f0">'+escH(t.Text)+'</a>';
+        }).join('')
+        +'</div>';
+    }
+  }
+  return '<div style="display:flex;flex-direction:column;align-items:center;height:100%;overflow-y:auto;padding:24px 20px;text-align:center;box-sizing:border-box">'
+    +'<div style="font-size:15px;color:#202124;font-weight:600;margin-bottom:16px">「'+escH(q)+'」の検索</div>'
+    +(summary||'<div style="font-size:12px;color:#9aa0a6;max-width:360px;margin-bottom:16px;line-height:1.6">この検索語に対する要約は見つかりませんでした。</div>')
+    +openBtn
+    +'<div style="font-size:10px;color:#c1c5c9;max-width:360px;margin-top:14px;line-height:1.5">要約はDuckDuckGoのInstant Answer APIより取得（該当がない場合や複雑な検索は上のボタンから確認してください）</div>'
+    +'</div>';
 }
 var _browserCurrentTarget='';
 function browserNav(dir){var next=browserIdx+dir;if(next<0||next>=browserHistory.length)return;browserIdx=next;var url=browserHistory[browserIdx];var u=document.getElementById('browser-url');if(u)u.value=url==='home'?'dotos://newtab':url;browserGo(url);}
