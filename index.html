@@ -257,8 +257,8 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
     <div id="shelf-clock"></div>
   </div>
 <script>const PERMS={
-  '特権管理者':['app_install','app_upload','app_delete','user_manage','settings_all','wallpaper','admin_panel','editor_build'],
-  '管理者':['app_install','app_upload','settings_all','wallpaper','editor_build','admin_panel'],
+  '特権管理者':['app_install','app_upload','app_delete','user_manage','settings_all','wallpaper','admin_panel','editor_build','tell_all'],
+  '管理者':['app_install','app_upload','settings_all','wallpaper','editor_build','admin_panel','tell_all'],
   'ユーザー':['app_install','wallpaper','app_upload','settings_all'],
   'ゲスト':[]
 };
@@ -696,6 +696,7 @@ async function openApp(id){
   if(wins[id]){focusWin(id);var we=document.getElementById('w-'+id);if(we)we.classList.remove('hidden');
     updateShelf();return;}
   if(id==='appstore'){await loadStoreApps();renderHomeIcons();}
+  if(id==='admin'&&hasPerm('admin_panel')){await loadAccounts();}
   var storeApp=getStoreAppsSync().find(function(a){return a.id===id;});
   var builtIn=APP_DEFS.find(function(a){return a.id===id;});
   var def=storeApp?{id:id,label:storeApp.name,w:560,h:400,userApp:true,storeDef:storeApp}:builtIn;
@@ -724,10 +725,13 @@ async function openApp(id){
   makeDraggable(div,document.getElementById('tb-'+id));
   div.addEventListener('mousedown',function(){focusWin(id);});
   updateShelf();
-  if(id==='terminal')setTimeout(function(){var e=document.getElementById('term-in');if(e)e.focus();},60);
+  if(id==='terminal'){setTimeout(function(){var e=document.getElementById('term-in');if(e)e.focus();},60);tellRenderInitial();}
   if(id==='settings')setTimeout(function(){showSettingsPage();},50);
 }
-function closeWin(id){var el=document.getElementById('w-'+id);if(!el)return;el.classList.add('closing');setTimeout(function(){el.remove();delete wins[id];delete maxiState[id];updateShelf();updateShelfVisibility();},200);}
+function closeWin(id){
+  if(id==='terminal'&&_termPollTimer){clearInterval(_termPollTimer);_termPollTimer=null;}
+  var el=document.getElementById('w-'+id);if(!el)return;el.classList.add('closing');setTimeout(function(){el.remove();delete wins[id];delete maxiState[id];updateShelf();updateShelfVisibility();},200);
+}
 function miniWin(id){var el=document.getElementById('w-'+id);if(el)el.classList.add('hidden');updateShelf();}
 function focusWin(id){var el=document.getElementById('w-'+id);if(el)el.style.zIndex=++zTop;}
 function maxiWin(id){
@@ -909,6 +913,61 @@ function customPrompt(message,defaultValue){
     }
   );
 }
+var TELL_KEY='vos_tell_messages';
+var _termPollTimer=null,_termSeenCount=0;
+async function tellLoad(){
+  var data=await onlineGet(TELL_KEY);
+  if(!Array.isArray(data)){
+    try{data=JSON.parse(localStorage.getItem('vos_tell_local')||'null');}catch(e){data=null;}
+  }
+  return Array.isArray(data)?data:[];
+}
+async function tellSave(msgs){
+  if(msgs.length>200)msgs=msgs.slice(-200);
+  try{localStorage.setItem('vos_tell_local',JSON.stringify(msgs));}catch(e){}
+  await onlineSet(TELL_KEY,msgs);
+}
+function tellLine(m){
+  var mine=m.from===((currentUser&&currentUser.user)||'');
+  var nameColor=mine?'#00d4aa':'#6c63ff';
+  var toLabel=(m.to&&m.to.toLowerCase()!=='all')?(' → '+escH(m.to)):' → 全員';
+  var time=new Date(m.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  return '<div style="margin-bottom:5px"><span style="color:'+nameColor+';font-weight:600">'+escH(m.from)+'</span><span style="color:rgba(255,255,255,.35);font-size:10px">'+toLabel+' · '+time+'</span><div style="color:#e8e8f0">'+escH(m.text)+'</div></div>';
+}
+async function tellRenderInitial(){
+  var out=document.getElementById('term-out');if(!out)return;
+  var msgs=await tellLoad();
+  _termSeenCount=msgs.length;
+  if(msgs.length){
+    var box=document.createElement('div');
+    box.id='term-tell-log';
+    box.style.cssText='border-top:1px solid rgba(255,255,255,.08);margin:6px 0;padding-top:6px';
+    box.innerHTML='<div style="color:rgba(255,255,255,.3);font-size:10px;margin-bottom:4px">📨 みんなのtell（直近'+Math.min(msgs.length,15)+'件）</div>'+msgs.slice(-15).map(tellLine).join('');
+    out.appendChild(box);
+    scrollTerm();
+  }
+  if(_termPollTimer)clearInterval(_termPollTimer);
+  _termPollTimer=setInterval(tellPoll,4000);
+}
+async function tellPoll(){
+  var out=document.getElementById('term-out');if(!out){if(_termPollTimer){clearInterval(_termPollTimer);_termPollTimer=null;}return;}
+  var msgs=await tellLoad();
+  if(msgs.length>_termSeenCount){
+    var newOnes=msgs.slice(_termSeenCount);
+    _termSeenCount=msgs.length;
+    out.insertAdjacentHTML('beforeend',newOnes.map(tellLine).join(''));
+    scrollTerm();
+  }
+}
+async function tellSend(target,text){
+  var msgs=await tellLoad();
+  var m={from:(currentUser&&currentUser.user)||'guest',to:target,text:text,ts:Date.now()};
+  msgs.push(m);
+  await tellSave(msgs);
+  _termSeenCount=msgs.length;
+  var out=document.getElementById('term-out');
+  if(out){out.insertAdjacentHTML('beforeend',tellLine(m));scrollTerm();}
+}
 var termPromptUser='user';
 function buildContent(id,def){
   if(id==='terminal')return buildTerminal();
@@ -933,12 +992,25 @@ function termKey(e){
   else if(e.key==='ArrowUp'){histIdx=Math.min(histIdx+1,termHistory.length-1);document.getElementById('term-in').value=termHistory[histIdx]||'';e.preventDefault();}
   else if(e.key==='ArrowDown'){histIdx=Math.max(histIdx-1,-1);document.getElementById('term-in').value=histIdx>=0?termHistory[histIdx]:'';e.preventDefault();}
 }
-function termRun(cmd){
+async function termRun(cmd){
   var out=document.getElementById('term-out');var u=currentUser&&currentUser.user||'user';
   var echo='<div><span class="t-prompt">'+u+'@dotos:~$</span> <span style="color:#e8e8f0">'+escH(cmd)+'</span></div>';
-  var c=(cmd||'').toLowerCase().trim();var resp='';
-  if(!c){scrollTerm();return;}
-  if(c==='help')resp='<div style="color:#ffd93d">ls / pwd / whoami / id / date / uname / uptime / echo [text] / clear / users / perms</div>';
+  if(!cmd||!cmd.trim()){scrollTerm();return;}
+  var trimmed=cmd.trim();
+  var tellMatch=/^\/tell\s+(\S+)\s+([\s\S]+)$/i.exec(trimmed);
+  if(tellMatch){
+    out.innerHTML+=echo;scrollTerm();
+    if(tellMatch[1].toLowerCase()==='all'&&!hasPerm('tell_all')){
+      out.innerHTML+='<div style="color:#ff5f5f">/tell all は管理者・特権管理者のみ使用できます</div>';scrollTerm();return;
+    }
+    await tellSend(tellMatch[1],tellMatch[2]);
+    return;
+  }
+  if(/^\/tell\b/i.test(trimmed)){
+    out.innerHTML+=echo+'<div style="color:#ff5f5f">使い方: /tell ユーザー名 メッセージ　または　/tell all メッセージ</div>';scrollTerm();return;
+  }
+  var c=trimmed.toLowerCase();var resp='';
+  if(c==='help')resp='<div style="color:#ffd93d">ls / pwd / whoami / id / date / uname / uptime / echo [text] / clear / users / perms / /tell [ユーザー名] [メッセージ]（allは管理者限定）</div>';
   else if(c==='ls')resp='<span style="color:#2dd4bf">ドキュメント/  ダウンロード/  画像/  app/  readme.txt</span>';
   else if(c==='pwd')resp='/home/'+u;
   else if(c==='whoami')resp=u;
