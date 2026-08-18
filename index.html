@@ -228,8 +228,7 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .ctx-item.danger:hover{background:#fee2e2}
 .ctx-sep{height:1px;background:#f0f0f0;margin:3px 4px}
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <div id="boot">
@@ -292,30 +291,39 @@ async function sha256Hex(str){
     return 'fb_'+Math.abs(h).toString(16);
   }
 }
-var FIREBASE_CONFIG={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};
-var _fbDb=null,_fbReady=false;
-(function initFirebaseIfConfigured(){
-  if(typeof firebase==='undefined')return;
-  if(!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.projectId)return;
+var SUPABASE_CONFIG={url:"https://fkactsbasqewbqkdhjsg.supabase.co",anonKey:"sb_publishable_A7OnuP5jpNtIkPLb6SDzrA_Swvx3PdE"};
+var _sbClient=null,_sbReady=false;
+(function initSupabaseIfConfigured(){
+  if(typeof supabase==='undefined')return;
+  if(!SUPABASE_CONFIG.url||!SUPABASE_CONFIG.anonKey)return;
   try{
-    firebase.initializeApp(FIREBASE_CONFIG);
-    _fbDb=firebase.firestore();
-    _fbReady=true;
+    _sbClient=supabase.createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey);
+    _sbReady=true;
   }catch(e){}
 })();
+async function checkCloudStatus(){
+  if(!_sbReady)return{ok:false,msg:'未設定（このブラウザだけに保存されています）'};
+  try{
+    var r=await _sbClient.from('dotos_kv').select('key').limit(1);
+    if(r.error)return{ok:false,msg:'接続エラー: '+r.error.message};
+    return{ok:true,msg:'接続済み（全員と共有されています）'};
+  }catch(e){
+    return{ok:false,msg:'接続エラー: '+(e&&e.message||'不明なエラー')};
+  }
+}
 async function onlineGet(key){
-  if(_fbReady){
+  if(_sbReady){
     try{
-      var doc=await _fbDb.collection('dotos').doc(key).get();
-      if(doc.exists)return doc.data().value;
+      var r=await _sbClient.from('dotos_kv').select('value').eq('key',key).maybeSingle();
+      if(!r.error&&r.data)return r.data.value;
     }catch(e){}
   }
-  try{var r=await window.storage.get(key,true);return r?JSON.parse(r.value):null;}catch(e){}
+  try{var r2=await window.storage.get(key,true);return r2?JSON.parse(r2.value):null;}catch(e){}
   return null;
 }
 async function onlineSet(key,val){
-  if(_fbReady){
-    try{await _fbDb.collection('dotos').doc(key).set({value:val});return;}catch(e){}
+  if(_sbReady){
+    try{await _sbClient.from('dotos_kv').upsert({key:key,value:val});return;}catch(e){}
   }
   try{await window.storage.set(key,JSON.stringify(val),true);}catch(e){}
 }
@@ -854,8 +862,13 @@ function showSettingsPage(){
     +'<input id="wp-fi" type="file" accept="image/*" style="position:fixed;left:-9999px;opacity:0" onchange="loadWallpaperFile(this)">'
     +'<div id="wp-custom-preview"></div>'
     :'<p style="color:#9ca3af;font-size:12px;margin:0">壁紙変更の権限がありません</p>';
+  var cloudHtml=hasPerm('user_manage')?
+    '<div style="'+SEC+'"><div style="'+HDR+'">☁️ クラウド接続</div>'
+    +'<div id="cloud-status-row" style="display:flex;align-items:center;gap:8px;font-size:12px;color:#9ca3af"><span id="cloud-status-dot" style="width:8px;height:8px;border-radius:50%;background:#d1d5db;flex-shrink:0"></span><span id="cloud-status-text">確認中...</span></div></div>'
+    :'';
   body.innerHTML=
-    '<div style="'+SEC+'"><div style="'+HDR+'">🖼 壁紙</div>'+wpHtml+'</div>'
+    cloudHtml
+    +'<div style="'+SEC+';padding-top:14px;margin-top:2px"><div style="'+HDR+'">🖼 壁紙</div>'+wpHtml+'</div>'
     +'<div style="'+SEC+';padding-top:14px;margin-top:2px"><div style="'+HDR+'">👤 アカウント</div>'
     +'<div class="srow"><span class="slabel">ユーザー名</span><span style="font-size:12px;color:#374151">'+u.user+'</span></div>'
     +'<div class="srow"><span class="slabel">ロール</span><span style="font-size:12px;color:#6b7280">'+u.role+'</span></div>'
@@ -873,6 +886,15 @@ function showSettingsPage(){
     +'<div style="'+SEC+';padding-top:14px;margin-top:2px;padding-bottom:20px"><div style="'+HDR+'">ℹ️ バージョン情報</div>'
     +'<div class="srow"><span class="slabel">OS</span><span style="font-size:12px;color:#374151">DotOS Core v4.0</span></div>'
     +'<div class="srow"><span class="slabel">アカウント数</span><span style="font-size:12px">'+accounts.length+'</span></div></div>';
+  if(hasPerm('user_manage')){
+    checkCloudStatus().then(function(s){
+      var dot=document.getElementById('cloud-status-dot'),txt=document.getElementById('cloud-status-text');
+      if(!dot||!txt)return;
+      dot.style.background=s.ok?'#22c55e':'#f59e0b';
+      txt.textContent=s.msg;
+      txt.style.color=s.ok?'#16a34a':'#9ca3af';
+    });
+  }
 }
 async function changePw(){
   var cur=document.getElementById('pw-cur')&&document.getElementById('pw-cur').value||'';
