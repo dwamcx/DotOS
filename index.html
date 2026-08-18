@@ -101,6 +101,11 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .cm-btn{border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-weight:500}
 .cm-cancel{background:#f3f4f6;color:#374151}
 .cm-ok{background:#6c63ff;color:#fff}
+.vos-gloading{position:fixed;inset:0;z-index:99996;background:rgba(15,15,25,.35);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;backdrop-filter:blur(2px)}
+.vos-gloading.show{opacity:1}
+.vos-gloading-box{background:#fff;border-radius:16px;padding:26px 32px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.vos-gloading-spinner{width:30px;height:30px;border-radius:50%;border:3px solid #e5e7eb;border-top-color:#6c63ff;animation:bspin .7s linear infinite}
+.vos-gloading-msg{font-size:12px;color:#374151;font-weight:500}
 @keyframes asPulse{0%{box-shadow:0 0 0 0 rgba(108,99,255,.5);transform:scale(1)}30%{box-shadow:0 0 0 8px rgba(108,99,255,0);transform:scale(1.02)}100%{box-shadow:0 0 0 0 rgba(108,99,255,0);transform:scale(1)}}
 .as-pulse{animation:asPulse .6s ease-out}
 .vos-toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(12px);background:#1f2937;color:#fff;font-size:12px;font-weight:500;padding:10px 20px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:99997;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}
@@ -109,6 +114,7 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .as-tag-chip:hover{border-color:#c7c5ff}
 .as-tag-chip.selected{background:#6c63ff;border-color:#6c63ff;color:#fff;font-weight:600}
 .win{position:absolute;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);min-width:280px;min-height:180px;display:flex;flex-direction:column;overflow:hidden;animation:winIn .32s cubic-bezier(.16,1,.3,1) both;pointer-events:auto}
+.win.win-anim{transition:left .3s cubic-bezier(.4,0,.2,1),top .3s cubic-bezier(.4,0,.2,1),width .3s cubic-bezier(.4,0,.2,1),height .3s cubic-bezier(.4,0,.2,1),border-radius .3s cubic-bezier(.4,0,.2,1)}
 @keyframes winIn{from{opacity:0;transform:scale(.72) translateY(-28px)}to{opacity:1;transform:none}}
 .win.hidden{display:none}
 .win.closing{animation:winOut .2s ease-in forwards}
@@ -146,14 +152,27 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .fi-folder::before{content:'';position:absolute;top:-8px;left:0;width:40%;height:10px;background:#6c63ff;border-radius:4px 4px 0 0}
 .fi-img{width:56px;height:48px;background:#6c63ff;border-radius:6px;display:flex;align-items:center;justify-content:center}
 .fi-doc{width:48px;height:56px;background:#6c63ff;border-radius:4px;display:flex;align-items:center;justify-content:center}
-.ftb{background:#f8f9fa;border-bottom:1px solid #e5e7eb;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.ftb-btn{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:5px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#374151;transition:background .1s;white-space:nowrap}
-.ftb-btn:hover{background:#f3f4f6}
-.fpath{flex:1;background:#e5e7eb;border-radius:8px;padding:4px 12px;font-size:12px;color:#374151;display:flex;justify-content:space-between;align-items:center;min-width:0}
-.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px;padding:16px}
-.fi{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:8px;cursor:pointer;transition:background .1s}
-.fi:hover{background:rgba(108,99,255,.08)}
-.fi-name{color:#374151;font-size:11px;text-align:center;word-break:break-word;line-height:1.3;max-width:80px}
+.ftb-btn{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:20px;padding:8px 16px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:#374151;transition:background .12s;white-space:nowrap;font-weight:500}
+.ftb-btn:hover{background:#f0f0f2}
+.fhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f0f0f0;flex-shrink:0;background:#fff}
+.fhead-back{width:28px;height:28px;border-radius:50%;border:none;background:#f3f4f6;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#374151;flex-shrink:0;transition:background .12s,transform .12s}
+.fhead-back:hover{background:#e5e7eb}
+.fhead-back:active{transform:scale(.9)}
+.fhead-path{font-size:14px;font-weight:600;color:#1f2937;flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.fhead-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fhead-count{font-size:11px;color:#9ca3af;flex-shrink:0;background:#f8f9fa;padding:3px 9px;border-radius:20px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;padding:18px}
+.fi{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;border-radius:12px;cursor:pointer;transition:background .14s,transform .14s}
+.fi:hover{background:rgba(108,99,255,.07);transform:translateY(-1px)}
+.fi:active{transform:translateY(0) scale(.97)}
+.fi-name{color:#374151;font-size:11.5px;text-align:center;word-break:break-word;line-height:1.35;max-width:84px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fi-del{position:absolute;top:4px;right:10px;width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid #fecaca;color:#dc2626;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .12s,background .12s;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.fi:hover .fi-del{opacity:1}
+.fi-del:hover{background:#fee2e2}
+.finfo-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f5f5f5;font-size:12.5px}
+.finfo-row .fi-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.finfo-label{color:#6b7280;flex:1}
+.finfo-val{color:#1f2937;font-weight:600}
 .bbar{background:#f8f9fa;border-bottom:1px solid #e5e7eb;padding:5px 8px;display:flex;align-items:center;gap:4px;flex-shrink:0}
 .urlbar{flex:1;background:#e8eaed;border:none;border-radius:20px;padding:5px 14px;color:#202124;font-size:13px;outline:none;user-select:text}
 .sbody{flex:1;padding:14px;overflow-y:auto}
@@ -338,18 +357,19 @@ async function doSignIn(){
   var u=(document.getElementById('si-user').value||'').trim();
   var p=document.getElementById('si-pass').value||'';
   var err=document.getElementById('si-err');
-  if(err)err.textContent='確認中...';
+  if(err)err.textContent='';
+  showGlobalLoading('ログイン中...');
   await loadAccounts();
   var hashedP=await sha256Hex(p);
   var acct=accounts.find(function(a){return a.user===u;});
   if(acct&&acct.pass===p&&acct.pass!==hashedP){
     acct.pass=hashedP;await saveAccounts();
   }
-  if(!acct||acct.pass!==hashedP){if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
+  if(!acct||acct.pass!==hashedP){hideGlobalLoading();if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
   currentUser=acct;
   var ls=document.getElementById('login-screen');
   ls.classList.add('out');
-  setTimeout(function(){ls.style.display='none';renderHomeIcons();applySavedSettings();updateShelfVisibility();},600);
+  setTimeout(function(){ls.style.display='none';renderHomeIcons();applySavedSettings();updateShelfVisibility();hideGlobalLoading();},600);
   termPromptUser=acct.user;
 }
 function showRegister(){
@@ -369,13 +389,13 @@ async function doRegister(){
   if(!u){if(err)err.textContent='ユーザー名を入力してください';return;}
   if(!p){if(err)err.textContent='パスワードを入力してください';return;}
   if(p!==p2){if(err)err.textContent='パスワードが一致しません';return;}
-  if(err)err.textContent='確認中...';
+  if(err)err.textContent='';
+  showGlobalLoading('アカウント作成中...');
   var fresh=await onlineGet('vos_accounts');
   if(Array.isArray(fresh)&&fresh.length)accounts=fresh;
-  if(accounts.find(function(a){return a.user===u;})){if(err)err.textContent='そのユーザー名は使用中です';return;}
+  if(accounts.find(function(a){return a.user===u;})){hideGlobalLoading();if(err)err.textContent='そのユーザー名は使用中です';return;}
   accounts.push({user:u,pass:await sha256Hex(p),role:'ユーザー'});
   await saveAccounts();
-  if(err){err.style.color='#00d4aa';err.textContent='作成しました！ログイン中...';}
   setTimeout(function(){
     currentUser=accounts.find(function(a){return a.user===u;});
     termPromptUser=u;
@@ -387,14 +407,19 @@ async function doRegister(){
       renderHomeIcons();
       applySavedSettings();
       updateShelfVisibility();
+      hideGlobalLoading();
     },600);
-  },800);
+  },500);
 }
 
 function doLogout(){
+  showGlobalLoading('ログアウト中...');
   Object.keys(wins).forEach(function(id){var el=document.getElementById('w-'+id);if(el)el.remove();delete wins[id];});
   updateShelf();currentUser=null;
-  var ls=document.getElementById('login-screen');ls.style.display='flex';ls.classList.remove('out');showSignIn();
+  setTimeout(function(){
+    var ls=document.getElementById('login-screen');ls.style.display='flex';ls.classList.remove('out');showSignIn();
+    hideGlobalLoading();
+  },400);
 }
 var bootMsgs=['カーネルを初期化中...','デバイスをスキャン中...','ドライバをロード中...','グラフィックを準備中...','準備完了'];
 var bp=0;
@@ -695,7 +720,7 @@ async function openApp(id){
   if(!currentUser)return;closeDrawer();
   if(wins[id]){focusWin(id);var we=document.getElementById('w-'+id);if(we)we.classList.remove('hidden');
     updateShelf();return;}
-  if(id==='appstore'){await loadStoreApps();renderHomeIcons();}
+  if(id==='appstore'){showGlobalLoading('App Storeを読み込み中...');await loadStoreApps();renderHomeIcons();hideGlobalLoading();}
   if(id==='admin'&&hasPerm('admin_panel')){await loadAccounts();}
   var storeApp=getStoreAppsSync().find(function(a){return a.id===id;});
   var builtIn=APP_DEFS.find(function(a){return a.id===id;});
@@ -736,6 +761,7 @@ function miniWin(id){var el=document.getElementById('w-'+id);if(el)el.classList.
 function focusWin(id){var el=document.getElementById('w-'+id);if(el)el.style.zIndex=++zTop;}
 function maxiWin(id){
   var el=document.getElementById('w-'+id);if(!el)return;
+  el.classList.add('win-anim');
   if(maxiState[id]){
     var s=maxiState[id];el.style.left=s.l;el.style.top=s.t;el.style.width=s.w;el.style.height=s.h;el.style.borderRadius='12px';delete maxiState[id];
     var wc0=el.querySelector('.wcontent');if(wc0)wc0.style.zoom='';
@@ -746,6 +772,7 @@ function maxiWin(id){
     var wc=el.querySelector('.wcontent');if(wc)wc.style.zoom='1.18';
   }
   focusWin(id);updateShelfVisibility();
+  setTimeout(function(){el.classList.remove('win-anim');},300);
 }
 function updateShelf(){
   var sw=document.getElementById('shelf-wins');
@@ -868,6 +895,19 @@ async function deleteSelfAccount(){
   doLogout();
 }
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function showGlobalLoading(msg){
+  var el=document.getElementById('vos-gloading');
+  if(el)el.remove();
+  el=document.createElement('div');
+  el.id='vos-gloading';el.className='vos-gloading';
+  el.innerHTML='<div class="vos-gloading-box"><div class="vos-gloading-spinner"></div>'+(msg?'<div class="vos-gloading-msg">'+escH(msg)+'</div>':'')+'</div>';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){el.classList.add('show');});
+}
+function hideGlobalLoading(){
+  var el=document.getElementById('vos-gloading');
+  if(el){el.classList.remove('show');setTimeout(function(){el.remove();},200);}
+}
 function customModal(innerHtml,onMount){
   return new Promise(function(resolve){
     var overlay=document.createElement('div');
@@ -1322,17 +1362,28 @@ function filesPreviewFile(name,ev){
   fc.style.position='relative';
   fc.appendChild(panel);
 }
-function filesToolbarHtml(){
-  return '<div class="ftb">'
-    +(_filesFolder?'<button class="ftb-btn" onclick="filesGoRoot()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> ルートに戻る</button>'
-      :'<span style="font-size:12px;color:#9ca3af;padding:5px 4px">📁 ホーム</span>')
+function filesHeader(label,icon,countLabel){
+  return '<div class="fhead">'
+    +(_filesFolder?'<button class="fhead-back" onclick="filesGoRoot()" title="ルートに戻る"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'')
+    +'<div class="fhead-path"><span style="flex-shrink:0">'+icon+'</span><span>'+escH(label)+'</span></div>'
+    +(countLabel?'<span class="fhead-count">'+escH(countLabel)+'</span>':'')
     +'</div>';
 }
-function filesPathHtml(label,countLabel){
-  return '<div class="fpath"><span>'+label+'</span><span style="color:#9ca3af">'+countLabel+'</span></div>';
+function filesInfoRow(icon,label,val){
+  return '<div class="finfo-row"><div class="fi-ico" style="background:#f3f4ff">'+icon+'</div><span class="finfo-label">'+escH(label)+'</span><span class="finfo-val">'+escH(String(val))+'</span></div>';
 }
-function filesInfoRow(label,val){
-  return '<div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="color:#6b7280">'+escH(label)+'</span><span style="color:#1f2937;font-weight:500">'+escH(String(val))+'</span></div>';
+function folderIconSvg(color){
+  return '<svg width="44" height="36" viewBox="0 0 44 36" fill="none">'
+    +'<path d="M2 6a2 2 0 0 1 2-2h11l3.2 3.4H40a2 2 0 0 1 2 2V30a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z" fill="'+color+'" opacity=".38"/>'
+    +'<path d="M2 12.5a2 2 0 0 1 2-2h36a2 2 0 0 1 2 2V30a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2Z" fill="'+color+'"/>'
+    +'</svg>';
+}
+function fileIconSvg(color,ext){
+  return '<svg width="36" height="42" viewBox="0 0 36 42" fill="none">'
+    +'<path d="M3 3a2 2 0 0 1 2-2h16l12 12v26a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" fill="#fff" stroke="'+color+'" stroke-width="2"/>'
+    +'<path d="M21 1v9a2 2 0 0 0 2 2h9" fill="none" stroke="'+color+'" stroke-width="2"/>'
+    +(ext?'<rect x="3" y="26" width="26" height="13" rx="3" fill="'+color+'"/><text x="16" y="35" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="Arial,sans-serif">'+ext+'</text>':'')
+    +'</svg>';
 }
 function buildFilesInner(){
   if(_filesFolder==='Apps')return buildFilesAppsFolder();
@@ -1343,39 +1394,34 @@ function buildFilesInner(){
   return buildFilesRoot();
 }
 function buildFilesRoot(){
-  var folderSvg='<svg width="32" height="28" viewBox="0 0 32 28" fill="none"><rect x="0" y="6" width="32" height="22" rx="4" fill="#6c63ff"/><rect x="0" y="2" width="14" height="8" rx="3" fill="#6c63ff"/><rect x="2" y="8" width="28" height="18" rx="3" fill="#7c6fff"/></svg>';
   var folders=[
-    {id:'Apps',desc:getAppFiles().length+'件'},
-    {id:'Documents',desc:''},
-    {id:'Desktop',desc:''},
-    {id:'System',desc:''},
-    {id:'Data',desc:''}
+    {id:'Apps',color:'#6c63ff',desc:getAppFiles().length+'件'},
+    {id:'Documents',color:'#3b82f6',desc:''},
+    {id:'Desktop',color:'#f59e0b',desc:''},
+    {id:'System',color:'#64748b',desc:''},
+    {id:'Data',color:'#10b981',desc:''}
   ];
   var items=folders.map(function(f){
-    return '<div class="fi" title="'+escH(f.id)+'" onclick="filesOpenFolder(\''+f.id+'\')">'+folderSvg+'<span class="fi-name">'+escH(f.id)+'</span></div>';
+    return '<div class="fi" title="'+escH(f.id)+'" onclick="filesOpenFolder(\''+f.id+'\')">'+folderIconSvg(f.color)+'<span class="fi-name">'+escH(f.id)+'</span></div>';
   }).join('');
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/',folders.length+' items')
+    +filesHeader('ホーム','📁',folders.length+' 件')
     +'<div style="flex:1;overflow-y:auto"><div class="fgrid">'+items+'</div></div>'
     +'</div>';
 }
 function buildFilesAppsFolder(){
   var files=getAppFiles();
-  var imgSvg='<svg width="32" height="28" viewBox="0 0 32 28" fill="none"><rect x="0" y="0" width="32" height="28" rx="4" fill="#6c63ff"/><circle cx="10" cy="10" r="4" fill="rgba(255,255,255,0.5)"/><path d="M0 20 L10 12 L18 18 L24 12 L32 20 L32 28 L0 28Z" fill="rgba(255,255,255,0.25)"/></svg>';
-  var docSvg='<svg width="28" height="32" viewBox="0 0 28 32" fill="none"><rect x="0" y="0" width="28" height="32" rx="4" fill="#6c63ff"/><line x1="6" y1="10" x2="22" y2="10" stroke="rgba(255,255,255,0.7)" stroke-width="2"/><line x1="6" y1="16" x2="22" y2="16" stroke="rgba(255,255,255,0.7)" stroke-width="2"/><line x1="6" y1="22" x2="16" y2="22" stroke="rgba(255,255,255,0.7)" stroke-width="2"/></svg>';
   var items=files.map(function(f){
-    var ico=f.lang==='html'?imgSvg:docSvg;
-    var shortName=f.name;
-    return '<div class="fi" title="'+escH(f.name)+'" onclick="filesPreviewFile(\''+escH(f.name)+'\')">'+ico
-      +'<span class="fi-name">'+escH(shortName)+'</span>'
-      +'<button onclick="event.stopPropagation();deleteAppFile(\''+escH(f.name)+'\')" title="削除" style="font-size:9px;background:#fee2e2;color:#dc2626;border:none;border-radius:4px;padding:2px 5px;cursor:pointer;margin-top:2px">✕</button>'
+    var isHtml=f.lang==='html';
+    var color=isHtml?'#f97316':'#eab308';
+    var ext=isHtml?'HTML':'JS';
+    return '<div class="fi" title="'+escH(f.name)+'" onclick="filesPreviewFile(\''+escH(f.name)+'\')">'+fileIconSvg(color,ext)+'<span class="fi-name">'+escH(f.name)+'</span>'
+      +'<button class="fi-del" onclick="event.stopPropagation();deleteAppFile(\''+escH(f.name)+'\')" title="削除">✕</button>'
       +'</div>';
   }).join('');
-  if(!items)items='<div style="color:#9ca3af;font-size:12px;padding:20px;text-align:center;grid-column:1/-1">app/ にファイルがありません<br><span style="font-size:11px">エディタで作成して「📁 ファイルへ」で保存</span></div>';
+  if(!items)items='<div style="color:#9ca3af;font-size:12px;padding:40px 20px;text-align:center;grid-column:1/-1;line-height:1.7">app/ にファイルがありません<br><span style="font-size:11px">エディタで作成して「📁 ファイルへ」で保存</span></div>';
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/ Apps',files.length+' items')
+    +filesHeader('Apps','📁',files.length+' 件')
     +'<div style="flex:1;overflow-y:auto"><div class="fgrid">'+items+'</div></div>'
     +'</div>';
 }
@@ -1383,13 +1429,12 @@ function buildFilesDocumentsFolder(){
   var key='vos_notes_'+(currentUser&&currentUser.user||'guest');
   var note=localStorage.getItem(key)||'';
   var body=note.trim()
-    ?'<pre style="flex:1;padding:14px;font-family:inherit;font-size:12px;white-space:pre-wrap;overflow-y:auto;user-select:text;margin:0;color:#374151">'+escH(note)+'</pre>'
-    :'<div style="color:#9ca3af;font-size:12px;padding:20px;text-align:center">メモがありません<br><span style="font-size:11px">メモ帳アプリで書いてみましょう</span></div>';
+    ?'<pre style="flex:1;padding:16px;font-family:inherit;font-size:12.5px;white-space:pre-wrap;overflow-y:auto;user-select:text;margin:0;color:#374151;line-height:1.6">'+escH(note)+'</pre>'
+    :'<div style="color:#9ca3af;font-size:12px;padding:40px 20px;text-align:center;line-height:1.7">メモがありません<br><span style="font-size:11px">メモ帳アプリで書いてみましょう</span></div>';
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/ Documents',note.trim()?'1 item':'0 items')
+    +filesHeader('Documents','📄',note.trim()?'1 件':'0 件')
     +'<div style="flex:1;display:flex;flex-direction:column;overflow-y:auto">'+body+'</div>'
-    +'<div style="padding:10px 14px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'notes\')">📝 メモ帳を開く</button></div>'
+    +'<div style="padding:12px 16px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'notes\')">📝 メモ帳を開く</button></div>'
     +'</div>';
 }
 function buildFilesDesktopFolder(){
@@ -1397,14 +1442,13 @@ function buildFilesDesktopFolder(){
   var iconCount=Object.keys((typeof iconPositions!=='undefined'&&iconPositions)||{}).length;
   var instCount=getInstalledIds().length;
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/ Desktop','3 items')
+    +filesHeader('Desktop','🖥','3 件')
     +'<div style="flex:1;overflow-y:auto">'
-    +filesInfoRow('現在の壁紙',wp)
-    +filesInfoRow('デスクトップのアイコン数',iconCount)
-    +filesInfoRow('インストール済みアプリ数',instCount)
+    +filesInfoRow('🎨','現在の壁紙',wp)
+    +filesInfoRow('🔷','デスクトップのアイコン数',iconCount)
+    +filesInfoRow('📦','インストール済みアプリ数',instCount)
     +'</div>'
-    +'<div style="padding:10px 14px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'settings\')">⚙ 設定を開く</button></div>'
+    +'<div style="padding:12px 16px;border-top:1px solid #f0f0f0"><button class="ftb-btn" onclick="openApp(\'settings\')">⚙ 設定を開く</button></div>'
     +'</div>';
 }
 function buildFilesSystemFolder(){
@@ -1412,13 +1456,12 @@ function buildFilesSystemFolder(){
   var role=(currentUser&&currentUser.role)||'ゲスト';
   var perms=(PERMS[role]||[]).join(' • ')||'なし';
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/ System','4 items')
+    +filesHeader('System','⚙','4 件')
     +'<div style="flex:1;overflow-y:auto">'
-    +filesInfoRow('ユーザー名',u)
-    +filesInfoRow('役職',role)
-    +filesInfoRow('権限',perms)
-    +filesInfoRow('OSバージョン','DotOS 4.0.0 x86_64')
+    +filesInfoRow('👤','ユーザー名',u)
+    +filesInfoRow('🎖','役職',role)
+    +filesInfoRow('🔐','権限',perms)
+    +filesInfoRow('💻','OSバージョン','DotOS 4.0.0 x86_64')
     +'</div>'
     +'</div>';
 }
@@ -1426,13 +1469,12 @@ function buildFilesDataFolder(){
   var appFilesCount=getAppFiles().length;
   var storeCount=getStoreAppsSync().length;
   var instCount=getInstalledIds().length;
-  var rows=filesInfoRow('保存済みファイル (Apps)',appFilesCount)
-    +filesInfoRow('App Store 登録アプリ数',storeCount)
-    +filesInfoRow('インストール済みアプリ数',instCount);
-  if(hasPerm('user_manage')){rows+=filesInfoRow('登録ユーザー数',accounts.length);}
+  var rows=filesInfoRow('📄','保存済みファイル (Apps)',appFilesCount)
+    +filesInfoRow('🛍','App Store 登録アプリ数',storeCount)
+    +filesInfoRow('📦','インストール済みアプリ数',instCount);
+  if(hasPerm('user_manage')){rows+=filesInfoRow('👥','登録ユーザー数',accounts.length);}
   return '<div class="app-col">'
-    +filesToolbarHtml()
-    +filesPathHtml('/ Data',(hasPerm('user_manage')?4:3)+' items')
+    +filesHeader('Data','💾',(hasPerm('user_manage')?4:3)+' 件')
     +'<div style="flex:1;overflow-y:auto">'+rows+'</div>'
     +'</div>';
 }
