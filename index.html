@@ -155,9 +155,12 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .ftb-btn{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:20px;padding:8px 16px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:#374151;transition:background .12s;white-space:nowrap;font-weight:500}
 .ftb-btn:hover{background:#f0f0f2}
 .fhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f0f0f0;flex-shrink:0;background:#fff}
-.fhead-back{width:28px;height:28px;border-radius:50%;border:none;background:#f3f4f6;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#374151;flex-shrink:0;transition:background .12s,transform .12s}
-.fhead-back:hover{background:#e5e7eb}
-.fhead-back:active{transform:scale(.9)}
+.fside{width:136px;flex-shrink:0;background:#f8f9fb;border-right:1px solid #f0f0f0;padding:14px 10px;overflow-y:auto}
+.fside-title{font-size:10px;color:#9ca3af;font-weight:700;letter-spacing:.06em;padding:10px 8px 6px;text-transform:uppercase}
+.fside-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;font-size:12.5px;color:#374151;cursor:pointer;transition:background .12s;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fside-item:hover{background:#eef0f4}
+.fside-item.active{background:#6c63ff;color:#fff;font-weight:600}
+.fside-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .fhead-path{font-size:14px;font-weight:600;color:#1f2937;flex:1;display:flex;align-items:center;gap:6px;min-width:0}
 .fhead-path span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fhead-count{font-size:11px;color:#9ca3af;flex-shrink:0;background:#f8f9fa;padding:3px 9px;border-radius:20px}
@@ -991,6 +994,15 @@ async function tellSave(msgs){
   try{localStorage.setItem('vos_tell_local',JSON.stringify(msgs));}catch(e){}
   await onlineSet(TELL_KEY,msgs);
 }
+function tellVisible(m){
+  var me=(currentUser&&currentUser.user)||'';
+  var role=(currentUser&&currentUser.role)||'';
+  if(role==='特権管理者')return true;
+  if(m.to&&m.to.toLowerCase()==='all')return true;
+  if(m.from===me)return true;
+  if(m.to===me)return true;
+  return false;
+}
 function tellLine(m){
   var mine=m.from===((currentUser&&currentUser.user)||'');
   var nameColor=mine?'#00d4aa':'#6c63ff';
@@ -1002,11 +1014,12 @@ async function tellRenderInitial(){
   var out=document.getElementById('term-out');if(!out)return;
   var msgs=await tellLoad();
   _termSeenCount=msgs.length;
-  if(msgs.length){
+  var visible=msgs.filter(tellVisible);
+  if(visible.length){
     var box=document.createElement('div');
     box.id='term-tell-log';
     box.style.cssText='border-top:1px solid rgba(255,255,255,.08);margin:6px 0;padding-top:6px';
-    box.innerHTML='<div style="color:rgba(255,255,255,.3);font-size:10px;margin-bottom:4px">📨 みんなのtell（直近'+Math.min(msgs.length,15)+'件）</div>'+msgs.slice(-15).map(tellLine).join('');
+    box.innerHTML='<div style="color:rgba(255,255,255,.3);font-size:10px;margin-bottom:4px">📨 tell（直近'+Math.min(visible.length,15)+'件）</div>'+visible.slice(-15).map(tellLine).join('');
     out.appendChild(box);
     scrollTerm();
   }
@@ -1017,10 +1030,12 @@ async function tellPoll(){
   var out=document.getElementById('term-out');if(!out){if(_termPollTimer){clearInterval(_termPollTimer);_termPollTimer=null;}return;}
   var msgs=await tellLoad();
   if(msgs.length>_termSeenCount){
-    var newOnes=msgs.slice(_termSeenCount);
+    var newOnes=msgs.slice(_termSeenCount).filter(tellVisible);
     _termSeenCount=msgs.length;
-    out.insertAdjacentHTML('beforeend',newOnes.map(tellLine).join(''));
-    scrollTerm();
+    if(newOnes.length){
+      out.insertAdjacentHTML('beforeend',newOnes.map(tellLine).join(''));
+      scrollTerm();
+    }
   }
 }
 async function tellSend(target,text){
@@ -1047,8 +1062,8 @@ function buildContent(id,def){
   return '<div style="padding:16px;color:#374151">準備中</div>';
 }
 function buildTerminal(){
-  return '<div class="term" id="term-out"><div style="color:#6c63ff;font-weight:500;margin-bottom:4px">DotOS Terminal v4.0</div><div style="color:rgba(255,255,255,.3);font-size:11px;margin-bottom:8px">help でコマンド一覧</div></div>'
-    +'<div class="in-row"><span class="t-prompt" id="term-prompt">'+termPromptUser+'@dotos:~$&nbsp;</span><input class="term-in" id="term-in" autocomplete="off" onkeydown="termKey(event)" placeholder="コマンドを入力..."></div>';
+  return '<div class="term" id="term-out"><div style="color:#6c63ff;font-weight:500;margin-bottom:4px">DotOS Terminal v4.0</div><div style="color:rgba(255,255,255,.3);font-size:11px;margin-bottom:8px">/help でコマンド一覧</div></div>'
+    +'<div class="in-row"><span class="t-prompt" id="term-prompt">'+termPromptUser+'@dotos:~$&nbsp;</span><input class="term-in" id="term-in" autocomplete="off" onkeydown="termKey(event)" placeholder="コマンドを入力...(例: /help)"></div>';
 }
 var termHistory=[],histIdx=-1;
 function termKey(e){
@@ -1074,20 +1089,34 @@ async function termRun(cmd){
     out.innerHTML+=echo+'<div style="color:#ff5f5f">使い方: /tell ユーザー名 メッセージ　または　/tell all メッセージ</div>';scrollTerm();return;
   }
   var c=trimmed.toLowerCase();var resp='';
-  if(c==='help')resp='<div style="color:#ffd93d">ls / pwd / whoami / id / date / uname / uptime / echo [text] / clear / users / perms / /tell [ユーザー名] [メッセージ]（allは管理者限定）</div>';
-  else if(c==='ls')resp='<span style="color:#2dd4bf">ドキュメント/  ダウンロード/  画像/  app/  readme.txt</span>';
-  else if(c==='pwd')resp='/home/'+u;
-  else if(c==='whoami')resp=u;
-  else if(c==='id')resp=u+' ('+((currentUser&&currentUser.role)||'ゲスト')+')';
-  else if(c==='perms')resp=(PERMS[(currentUser&&currentUser.role)||'ゲスト']||[]).join(', ')||'なし';
-  else if(c==='date')resp=new Date().toLocaleString('ja-JP');
-  else if(c==='uname'||c==='uname -a')resp='DotOS 4.0.0 x86_64';
-  else if(c==='uptime')resp='稼働時間: '+Math.floor(Math.random()*60+1)+'分';
-  else if(c==='users')resp=accounts.map(function(a){return a.user+' ('+a.role+')';}).join('<br>');
-  else if(c==='clear'){out.innerHTML='';return;}
-  else if(c==='echo')resp='';
-  else if(c.indexOf('echo ')==0)resp=escH(cmd.trim().slice(5));
-  else resp='<span style="color:#ff5f5f">コマンドが見つかりません: '+escH(cmd)+'</span>';
+  if(c==='/help')resp='<div style="color:#ffd93d;line-height:1.9">'
+    +'/ls — ファイル一覧<br>'
+    +'/pwd — 現在のディレクトリ<br>'
+    +'/whoami — ユーザー名を表示<br>'
+    +'/id — ユーザー名と役職を表示<br>'
+    +'/date — 現在日時を表示<br>'
+    +'/uname — OS情報を表示<br>'
+    +'/uptime — 稼働時間を表示<br>'
+    +'/echo [文字列] — そのまま表示<br>'
+    +'/clear — 画面をクリア<br>'
+    +'/users — 登録ユーザー一覧<br>'
+    +'/perms — 自分の権限一覧<br>'
+    +'/tell [ユーザー名] [メッセージ] — 個人にメッセージ（送信者と相手だけに表示）<br>'
+    +'/tell all [メッセージ] — 全員にメッセージ（管理者・特権管理者限定）'
+    +'</div>';
+  else if(c==='/ls')resp='<span style="color:#2dd4bf">ドキュメント/  ダウンロード/  画像/  app/  readme.txt</span>';
+  else if(c==='/pwd')resp='/home/'+u;
+  else if(c==='/whoami')resp=u;
+  else if(c==='/id')resp=u+' ('+((currentUser&&currentUser.role)||'ゲスト')+')';
+  else if(c==='/perms')resp=(PERMS[(currentUser&&currentUser.role)||'ゲスト']||[]).join(', ')||'なし';
+  else if(c==='/date')resp=new Date().toLocaleString('ja-JP');
+  else if(c==='/uname'||c==='/uname -a')resp='DotOS 4.0.0 x86_64';
+  else if(c==='/uptime')resp='稼働時間: '+Math.floor(Math.random()*60+1)+'分';
+  else if(c==='/users')resp=accounts.map(function(a){return a.user+' ('+a.role+')';}).join('<br>');
+  else if(c==='/clear'){out.innerHTML='';return;}
+  else if(c==='/echo')resp='';
+  else if(c.indexOf('/echo ')===0)resp=escH(cmd.trim().slice(6));
+  else resp='<span style="color:#ff5f5f">コマンドが見つかりません: '+escH(cmd)+'（例: /help）</span>';
   out.innerHTML+=echo+'<div style="margin-bottom:4px">'+resp+'</div>';scrollTerm();
 }
 function scrollTerm(){var o=document.getElementById('term-out');if(o)o.scrollTop=o.scrollHeight;}
@@ -1133,7 +1162,7 @@ function buildEditor(){
     +'<button class="ebtn" id="ed-save-btn" onclick="edSave()">保存</button>'
     +'<button class="ebtn run" onclick="edSelectMode(\'preview\')">▶ 実行</button>'
     +'<button class="ebtn" onclick="edDownload()">⬇ ダウンロード</button>'
-    +(hasPerm('editor_build')?'<button class="ebtn" style="background:#1e3a5f;color:#60a5fa;border:1px solid #1d4ed8" onclick="edSaveToFiles()">📁 ファイルへ</button>':'')
+    +(hasPerm('app_upload')?'<button class="ebtn" style="background:#1e3a5f;color:#60a5fa;border:1px solid #1d4ed8" onclick="edSaveToFiles()">📁 ファイルへ</button>':'')
     +'<span id="ed-autosave-indicator" style="font-size:10px;color:#555;margin-left:6px">自動保存ON</span>'
     +'<span id="ed-status" style="font-size:10px;color:#4b5563;margin-left:auto;flex-shrink:0"></span>'
     +'</div>'
@@ -1388,7 +1417,6 @@ function filesPreviewFile(name,ev){
 }
 function filesHeader(label,icon,countLabel){
   return '<div class="fhead">'
-    +(_filesFolder?'<button class="fhead-back" onclick="filesGoRoot()" title="ルートに戻る"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'')
     +'<div class="fhead-path"><span style="flex-shrink:0">'+icon+'</span><span>'+escH(label)+'</span></div>'
     +(countLabel?'<span class="fhead-count">'+escH(countLabel)+'</span>':'')
     +'</div>';
@@ -1409,13 +1437,33 @@ function fileIconSvg(color,ext){
     +(ext?'<rect x="3" y="26" width="26" height="13" rx="3" fill="'+color+'"/><text x="16" y="35" text-anchor="middle" font-size="9" font-weight="700" fill="#fff" font-family="Arial,sans-serif">'+ext+'</text>':'')
     +'</svg>';
 }
+var FILES_LOCATIONS=[
+  {id:'Apps',label:'Apps',color:'#6c63ff',icon:'📁'},
+  {id:'Documents',label:'Documents',color:'#3b82f6',icon:'📄'},
+  {id:'Desktop',label:'Desktop',color:'#f59e0b',icon:'🖥'},
+  {id:'System',label:'System',color:'#64748b',icon:'⚙'},
+  {id:'Data',label:'Data',color:'#10b981',icon:'💾'}
+];
+function filesSidebarHtml(){
+  var homeActive=!_filesFolder;
+  return '<div class="fside">'
+    +'<div class="fside-item'+(homeActive?' active':'')+'" onclick="filesGoRoot()"><span class="fside-dot" style="background:#c7c5ff"></span>🏠 ホーム</div>'
+    +'<div class="fside-title">場所</div>'
+    +FILES_LOCATIONS.map(function(it){
+      var active=_filesFolder===it.id;
+      return '<div class="fside-item'+(active?' active':'')+'" onclick="filesOpenFolder(\''+it.id+'\')"><span class="fside-dot" style="background:'+it.color+'"></span>'+it.label+'</div>';
+    }).join('')
+    +'</div>';
+}
 function buildFilesInner(){
-  if(_filesFolder==='Apps')return buildFilesAppsFolder();
-  if(_filesFolder==='Data')return buildFilesDataFolder();
-  if(_filesFolder==='Desktop')return buildFilesDesktopFolder();
-  if(_filesFolder==='Documents')return buildFilesDocumentsFolder();
-  if(_filesFolder==='System')return buildFilesSystemFolder();
-  return buildFilesRoot();
+  var content;
+  if(_filesFolder==='Apps')content=buildFilesAppsFolder();
+  else if(_filesFolder==='Data')content=buildFilesDataFolder();
+  else if(_filesFolder==='Desktop')content=buildFilesDesktopFolder();
+  else if(_filesFolder==='Documents')content=buildFilesDocumentsFolder();
+  else if(_filesFolder==='System')content=buildFilesSystemFolder();
+  else content=buildFilesRoot();
+  return '<div style="height:100%;display:flex">'+filesSidebarHtml()+'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'+content+'</div></div>';
 }
 function buildFilesRoot(){
   var folders=[
