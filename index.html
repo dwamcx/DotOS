@@ -759,10 +759,12 @@ async function openApp(id){
   div.addEventListener('mousedown',function(){focusWin(id);});
   updateShelf();
   if(id==='terminal'){setTimeout(function(){var e=document.getElementById('term-in');if(e)e.focus();},60);tellRenderInitial();}
+  if(id==='admin'){setTimeout(function(){startAdminPoll();},50);}
   if(id==='settings')setTimeout(function(){showSettingsPage();},50);
 }
 function closeWin(id){
   if(id==='terminal'&&_termPollTimer){clearInterval(_termPollTimer);_termPollTimer=null;}
+  if(id==='admin'&&_adminPollTimer){clearInterval(_adminPollTimer);_adminPollTimer=null;}
   var el=document.getElementById('w-'+id);if(!el)return;el.classList.add('closing');setTimeout(function(){el.remove();delete wins[id];delete maxiState[id];updateShelf();updateShelfVisibility();},200);
 }
 function miniWin(id){var el=document.getElementById('w-'+id);if(el)el.classList.add('hidden');updateShelf();}
@@ -1968,13 +1970,29 @@ function rerunUserApp(appId){
   }catch(err){resultHtml='<span style="color:#ff5f5f;font-size:11px">✗ エラー: '+escH(err.message)+'</span>';}
   out.innerHTML=resultHtml;
 }
+var _adminPollTimer=null;
+async function refreshAdminUsers(btn){
+  if(btn){btn.textContent='更新中...';btn.disabled=true;}
+  await loadAccounts();
+  var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
+}
+function startAdminPoll(){
+  if(_adminPollTimer)clearInterval(_adminPollTimer);
+  _adminPollTimer=setInterval(async function(){
+    var wc=document.getElementById('wc-admin');
+    if(!wc){clearInterval(_adminPollTimer);_adminPollTimer=null;return;}
+    var before=JSON.stringify(accounts);
+    await loadAccounts();
+    if(JSON.stringify(accounts)!==before){wc.innerHTML=buildAdmin();}
+  },5000);
+}
 function buildAdmin(){
   if(!hasPerm('admin_panel'))return '<div style="padding:20px;color:#dc2626">アクセス拒否: 管理者権限が必要です</div>';
   var canManageUsers=hasPerm('user_manage');
   var canDeleteApps=hasPerm('app_delete');
   var html='<div style="padding:16px 8px;overflow-y:auto;height:100%"><div style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:14px;padding:0 8px">🛡 管理者パネル</div>'
     +'<div class="adm-grid">'
-    +'<div class="adm-sec"><h4>👥 ユーザー管理</h4>'
+    +'<div class="adm-sec"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h4 style="margin:0">👥 ユーザー管理</h4><button onclick="refreshAdminUsers(this)" title="最新の登録アカウントを再取得" style="background:#fff;border:1px solid #fecaca;color:#dc2626;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">🔄 更新</button></div>'
     +(canManageUsers?'':'<div style="font-size:11px;color:#9ca3af;margin-bottom:8px">表示のみ（編集には特権管理者権限が必要です）</div>');
   accounts.forEach(function(a){
     var cls=a.role==='特権管理者'?'a':a.role==='管理者'?'m':'u';
