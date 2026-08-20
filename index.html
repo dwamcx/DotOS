@@ -111,6 +111,8 @@ body{background:#000;margin:0;width:100vw;height:100vh;overflow:hidden;font-fami
 .vos-toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(12px);background:#1f2937;color:#fff;font-size:12px;font-weight:500;padding:10px 20px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:99997;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap}
 .vos-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .as-tag-chip{border:1.5px solid #e5e7eb;background:#f9fafb;color:#374151;border-radius:999px;padding:7px 16px;font-size:12px;cursor:pointer;transition:all .12s;user-select:none;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.as-mode-tab{color:#6b7280;transition:background .12s,color .12s}
+.as-mode-tab.active{background:#fff;color:#1f2937;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .as-tag-chip:hover{border-color:#c7c5ff}
 .as-tag-chip.selected{background:#6c63ff;border-color:#6c63ff;color:#fff;font-weight:600}
 .win{position:absolute;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.18);min-width:280px;min-height:180px;display:flex;flex-direction:column;overflow:hidden;animation:winIn .32s cubic-bezier(.16,1,.3,1) both;pointer-events:auto}
@@ -1888,13 +1890,25 @@ function asShowUpload(){
     +'<span style="font-size:15px;font-weight:700;color:#1f2937">アプリを公開</span>'
     +'<span style="margin-left:auto;font-size:11px;color:#9ca3af;flex-shrink:0">STEP 1 / 2</span>'
     +'</div>'
-    +'<div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.04em">📁 ファイルから選択</div>'
+    +'<div style="display:flex;gap:6px;background:#f3f4f6;border-radius:10px;padding:3px;margin-bottom:2px">'
+    +'<div id="as-mode-code" class="as-mode-tab active" onclick="asSetPublishMode(\'code\')" style="flex:1;text-align:center;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">📝 コード</div>'
+    +'<div id="as-mode-link" class="as-mode-tab" onclick="asSetPublishMode(\'link\')" style="flex:1;text-align:center;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🔗 外部リンク</div>'
+    +'</div>'
+    +'<div id="as-code-fields">'
+    +'<div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.04em;margin-bottom:6px">📁 ファイルから選択</div>'
     +'<div id="as-file-list" style="display:flex;flex-direction:column;gap:6px;height:120px;flex-shrink:0;overflow-y:auto">'+fileListHtml+'</div>'
-    +'<div style="font-size:10px;color:#9ca3af;margin:2px 0 6px">選択すると下欄に自動入力されます。手動で貼り付けることもできます。</div>'
+    +'<div style="font-size:10px;color:#9ca3af;margin:6px 0">選択すると下欄に自動入力されます。手動で貼り付けることもできます。</div>'
+    +'</div>'
     +'<input id="as-up-name" placeholder="アプリ名 *" style="'+S+'">'
     +'<textarea id="as-up-desc" placeholder="説明（任意）" rows="3" style="'+S+';resize:none"></textarea>'
-    +'<select id="as-up-lang" style="'+S+';background:#fff"><option value="html">HTML</option><option value="javascript">JavaScript</option></select>'
+    +'<div id="as-code-fields2">'
+    +'<select id="as-up-lang" style="'+S+';background:#fff;margin-bottom:8px"><option value="html">HTML</option><option value="javascript">JavaScript</option></select>'
     +'<textarea id="as-up-code" placeholder="コードを貼り付け... *" rows="7" style="'+S+';resize:none;font-family:monospace;font-size:11px"></textarea>'
+    +'</div>'
+    +'<div id="as-link-fields" style="display:none">'
+    +'<input id="as-up-url" placeholder="https://... （外部サイトのURL） *" style="'+S+'">'
+    +'<div style="font-size:10px;color:#9ca3af;margin-top:6px;line-height:1.6">容量が大きいアプリや、既に別の場所にホスティングされているアプリ向けです。DotOSには埋め込まず、起動時に新しいタブでURLを開きます。</div>'
+    +'</div>'
     +'<div id="as-up-err" style="color:#dc2626;font-size:11px;min-height:14px"></div>'
     +'<button onclick="asGoToTagStep()" style="background:#6c63ff;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-weight:600">次へ →</button>'
     +'</div>';
@@ -1921,12 +1935,31 @@ function asShowUpload(){
   wc.appendChild(panel);
   setTimeout(function(){var e=document.getElementById('as-up-name');if(e)e.focus();},50);
 }
+function asSetPublishMode(mode){
+  var codeTab=document.getElementById('as-mode-code'),linkTab=document.getElementById('as-mode-link');
+  var codeFields=document.getElementById('as-code-fields'),codeFields2=document.getElementById('as-code-fields2'),linkFields=document.getElementById('as-link-fields');
+  var err=document.getElementById('as-up-err');if(err)err.textContent='';
+  if(mode==='link'){
+    if(codeTab)codeTab.classList.remove('active');if(linkTab)linkTab.classList.add('active');
+    if(codeFields)codeFields.style.display='none';if(codeFields2)codeFields2.style.display='none';if(linkFields)linkFields.style.display='block';
+  }else{
+    if(linkTab)linkTab.classList.remove('active');if(codeTab)codeTab.classList.add('active');
+    if(codeFields)codeFields.style.display='block';if(codeFields2)codeFields2.style.display='block';if(linkFields)linkFields.style.display='none';
+  }
+}
 function asGoToTagStep(){
   var name=(document.getElementById('as-up-name')&&document.getElementById('as-up-name').value||'').trim();
-  var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
+  var isLinkMode=document.getElementById('as-link-fields')&&document.getElementById('as-link-fields').style.display!=='none';
   var err=document.getElementById('as-up-err');
   if(!name){if(err)err.textContent='アプリ名を入力してください';return;}
-  if(!code){if(err)err.textContent='コードを入力してください';return;}
+  if(isLinkMode){
+    var url=(document.getElementById('as-up-url')&&document.getElementById('as-up-url').value||'').trim();
+    if(!url){if(err)err.textContent='URLを入力してください';return;}
+    if(!/^https?:\/\//i.test(url)){if(err)err.textContent='URLは http:// または https:// から始めてください';return;}
+  }else{
+    var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
+    if(!code){if(err)err.textContent='コードを入力してください';return;}
+  }
   if(err)err.textContent='';
   var s1=document.getElementById('as-step1'),s2=document.getElementById('as-step2');
   if(s1)s1.style.display='none';
@@ -1956,14 +1989,23 @@ async function doAppStoreUpload2(){
   var name=(document.getElementById('as-up-name')&&document.getElementById('as-up-name').value||'').trim();
   var desc=(document.getElementById('as-up-desc')&&document.getElementById('as-up-desc').value||'').trim();
   var tags=Array.from(document.querySelectorAll('.as-tag-chip.selected')).map(function(el){return el.getAttribute('data-tag');});
-  var lang=(document.getElementById('as-up-lang')&&document.getElementById('as-up-lang').value)||'html';
-  var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
-  if(!name||!code)return;
+  var isLinkMode=document.getElementById('as-link-fields')&&document.getElementById('as-link-fields').style.display!=='none';
+  var entry;
+  if(isLinkMode){
+    var url=(document.getElementById('as-up-url')&&document.getElementById('as-up-url').value||'').trim();
+    if(!name||!url)return;
+    entry={lang:'link',url:url,code:''};
+  }else{
+    var lang=(document.getElementById('as-up-lang')&&document.getElementById('as-up-lang').value)||'html';
+    var code=(document.getElementById('as-up-code')&&document.getElementById('as-up-code').value||'').trim();
+    if(!name||!code)return;
+    entry={lang:lang,code:code};
+  }
   var btn=document.getElementById('as-final-publish-btn');
   if(btn){btn.disabled=true;btn.textContent='公開中...';}
   var apps=getStoreAppsSync();
   var id='uapp_'+Date.now();
-  apps.push({id:id,name:name,desc:desc,tags:tags,code:code,lang:lang,author:currentUser&&currentUser.user,dl:0,rating:0,uploadedAt:new Date().toISOString()});
+  apps.push(Object.assign({id:id,name:name,desc:desc,tags:tags,author:currentUser&&currentUser.user,dl:0,rating:0,uploadedAt:new Date().toISOString()},entry));
   await saveStoreApps(apps);
   renderHomeIcons();renderDrawerIcons();
   var wc=document.getElementById('wc-appstore');
@@ -1981,6 +2023,15 @@ async function delStoreApp(id){
 }
 function buildUserApp(sd){
   if(!sd)return '<div style="padding:16px">エラー</div>';
+  if(sd.lang==='link'){
+    return '<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#f9fafb;padding:20px;text-align:center">'
+      +'<div style="width:64px;height:64px;border-radius:18px;background:#6c63ff;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;box-shadow:0 8px 24px rgba(108,99,255,.3)">🔗</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#1f2937">'+escH(sd.name)+'</div>'
+      +(sd.desc?'<div style="font-size:12px;color:#6b7280;max-width:320px;line-height:1.6">'+escH(sd.desc)+'</div>':'')
+      +'<a href="'+escH(sd.url||'')+'" target="_blank" rel="noopener noreferrer" style="background:#6c63ff;color:#fff;text-decoration:none;border-radius:20px;padding:11px 26px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(108,99,255,.35)">🚀 新しいタブで起動</a>'
+      +'<div style="font-size:10px;color:#9ca3af;max-width:300px;line-height:1.5">このアプリは容量が大きいため、DotOSには埋め込まず外部リンクとして起動します</div>'
+      +'</div>';
+  }
   if(sd.lang==='html'){
     return '<iframe srcdoc="'+escH(sd.code)+'" style="width:100%;height:100%;border:none;display:block"></iframe>';
   }
