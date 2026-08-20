@@ -334,7 +334,23 @@ async function onlineSet(key,val){
 }
 var accounts=[];
 var currentUser=null;
+function authEmailFor(username){return username.toLowerCase()+'@dotos.local';}
+// ── 設計方針 ──────────────────────────────────────────────
+// Supabaseが設定されている場合は、パスワードを自前でハッシュ化して保存するのをやめ、
+// Supabase Auth（実績のある安全な認証基盤・パスワードはサーバー側でbcryptハッシュ化され、
+// クライアント側からは絶対に読み取れない）に完全に任せる。ユーザー名はダミーのメールアドレス
+// （username@dotos.local）に変換してSupabase Authに渡し、実際の表示名・役職は
+// 別テーブル「profiles」で管理する。Supabase未設定の場合のみ、従来のSHA-256方式にフォールバックする。
 async function loadAccounts(){
+  if(_sbReady){
+    try{
+      var r=await _sbClient.from('profiles').select('username,role,id');
+      if(!r.error&&Array.isArray(r.data)){
+        accounts=r.data.map(function(p){return {user:p.username,role:p.role,id:p.id};});
+        return;
+      }
+    }catch(e){}
+  }
   var data = await onlineGet('vos_accounts');
   if(Array.isArray(data) && data.length){
     accounts = data;
@@ -371,7 +387,18 @@ async function doSignIn(){
   var p=document.getElementById('si-pass').value||'';
   var err=document.getElementById('si-err');
   if(err)err.textContent='';
+  if(!u||!p){if(err)err.textContent='ユーザー名とパスワードを入力してください';return;}
   showGlobalLoading('ログイン中...');
+  if(_sbReady){
+    try{
+      var res=await _sbClient.auth.signInWithPassword({email:authEmailFor(u),password:p});
+      if(res.error){hideGlobalLoading();if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
+      var prof=await _sbClient.from('profiles').select('*').eq('id',res.data.user.id).maybeSingle();
+      currentUser={id:res.data.user.id,user:u,role:(prof.data&&prof.data.role)||'ユーザー'};
+      finishLogin();
+      return;
+    }catch(e){hideGlobalLoading();if(err)err.textContent='ログインに失敗しました';return;}
+  }
   await loadAccounts();
   var hashedP=await sha256Hex(p);
   var acct=accounts.find(function(a){return a.user===u;});
@@ -380,10 +407,13 @@ async function doSignIn(){
   }
   if(!acct||acct.pass!==hashedP){hideGlobalLoading();if(err)err.textContent='ユーザー名またはパスワードが違います';return;}
   currentUser=acct;
+  finishLogin();
+}
+function finishLogin(){
+  termPromptUser=currentUser.user;
   var ls=document.getElementById('login-screen');
   ls.classList.add('out');
   setTimeout(function(){ls.style.display='none';renderHomeIcons();applySavedSettings();updateShelfVisibility();hideGlobalLoading();},600);
-  termPromptUser=acct.user;
 }
 function showRegister(){
   lsInner.innerHTML='<div class="login-card"><div class="reg-title">新規アカウント作成</div>'
@@ -401,34 +431,53 @@ async function doRegister(){
   var err=document.getElementById('reg-err');
   if(!u){if(err)err.textContent='ユーザー名を入力してください';return;}
   if(!p){if(err)err.textContent='パスワードを入力してください';return;}
+  if(_sbReady&&!/^[a-zA-Z0-9_-]+$/.test(u)){if(err)err.textContent='ユーザー名は半角英数字・_・-のみ使用できます';return;}
+  if(_sbReady&&p.length<6){if(err)err.textContent='パスワードは6文字以上にしてください';return;}
   if(p!==p2){if(err)err.textContent='パスワードが一致しません';return;}
   if(err)err.textContent='';
   showGlobalLoading('アカウント作成中...');
+  if(_sbReady){
+    try{
+      var existing=await _sbClient.from('profiles').select('username').eq('username',u).maybeSingle();
+      if(existing.data){hideGlobalLoading();if(err)err.textContent='そのユーザー名は使用中です';return;}
+      var res=await _sbClient.auth.signUp({email:authEmailFor(u),password:p});
+      if(res.error){hideGlobalLoading();if(err)err.textContent='登録に失敗しました: '+res.error.message;return;}
+      var uid=res.data.user&&res.data.user.id;
+      if(!uid){hideGlobalLoading();if(err)err.textContent='登録に失敗しました';return;}
+      await _sbClient.from('profiles').insert({id:uid,username:u,role:'ユーザー'});
+      currentUser={id:uid,user:u,role:'ユーザー'};
+      afterRegisterUi();
+      return;
+    }catch(e){hideGlobalLoading();if(err)err.textContent='登録に失敗しました';return;}
+  }
   var fresh=await onlineGet('vos_accounts');
   if(Array.isArray(fresh)&&fresh.length)accounts=fresh;
   if(accounts.find(function(a){return a.user===u;})){hideGlobalLoading();if(err)err.textContent='そのユーザー名は使用中です';return;}
   accounts.push({user:u,pass:await sha256Hex(p),role:'ユーザー'});
   await saveAccounts();
+  currentUser=accounts.find(function(a){return a.user===u;});
+  afterRegisterUi();
+}
+function afterRegisterUi(){
+  termPromptUser=currentUser.user;
+  setWallpaper('gradient','linear-gradient(160deg,#f6f5fa)',null);
+  var ls=document.getElementById('login-screen');
+  ls.classList.add('out');
   setTimeout(function(){
-    currentUser=accounts.find(function(a){return a.user===u;});
-    termPromptUser=u;
-    setWallpaper('gradient','linear-gradient(160deg,#f6f5fa)',null);
-    var ls=document.getElementById('login-screen');
-    ls.classList.add('out');
-    setTimeout(function(){
-      ls.style.display='none';
-      renderHomeIcons();
-      applySavedSettings();
-      updateShelfVisibility();
-      hideGlobalLoading();
-    },600);
-  },500);
+    ls.style.display='none';
+    renderHomeIcons();
+    applySavedSettings();
+    updateShelfVisibility();
+    hideGlobalLoading();
+  },600);
 }
 
 function doLogout(){
   showGlobalLoading('ログアウト中...');
   Object.keys(wins).forEach(function(id){var el=document.getElementById('w-'+id);if(el)el.remove();delete wins[id];});
-  updateShelf();currentUser=null;
+  updateShelf();
+  if(_sbReady){try{_sbClient.auth.signOut();}catch(e){}}
+  currentUser=null;
   setTimeout(function(){
     var ls=document.getElementById('login-screen');ls.style.display='flex';ls.classList.remove('out');showSignIn();
     hideGlobalLoading();
@@ -908,19 +957,32 @@ async function changePw(){
   var nw=document.getElementById('pw-new')&&document.getElementById('pw-new').value||'';
   var nw2=document.getElementById('pw-new2')&&document.getElementById('pw-new2').value||'';
   var err=document.getElementById('pw-err');if(!currentUser)return;
-  var hashedCur=await sha256Hex(cur);
-  if(hashedCur!==currentUser.pass){if(err)err.textContent='現在のパスワードが違います';return;}
   if(!nw){if(err)err.textContent='新しいパスワードを入力';return;}
   if(nw!==nw2){if(err)err.textContent='パスワードが一致しません';return;}
-  var hashedNew=await sha256Hex(nw);
-  currentUser.pass=hashedNew;var i=accounts.findIndex(function(a){return a.user===currentUser.user;});if(i>=0)accounts[i].pass=hashedNew;await saveAccounts();
+  if(_sbReady){
+    try{
+      var verify=await _sbClient.auth.signInWithPassword({email:authEmailFor(currentUser.user),password:cur});
+      if(verify.error){if(err)err.textContent='現在のパスワードが違います';return;}
+      var res=await _sbClient.auth.updateUser({password:nw});
+      if(res.error){if(err)err.textContent='変更に失敗しました';return;}
+    }catch(e){if(err)err.textContent='変更に失敗しました';return;}
+  }else{
+    var hashedCur=await sha256Hex(cur);
+    if(hashedCur!==currentUser.pass){if(err)err.textContent='現在のパスワードが違います';return;}
+    var hashedNew=await sha256Hex(nw);
+    currentUser.pass=hashedNew;var i=accounts.findIndex(function(a){return a.user===currentUser.user;});if(i>=0)accounts[i].pass=hashedNew;await saveAccounts();
+  }
   if(err){err.style.color='#16a34a';err.textContent='変更しました！';setTimeout(function(){err.textContent='';err.style.color='#dc2626';},2000);}
 }
 async function deleteSelfAccount(){
   if(!currentUser||currentUser.user==='admin'){await customAlert('このアカウントは削除できません');return;}
   if(!(await customConfirm('本当に「'+currentUser.user+'」を削除しますか？\nこの操作は取り消せません。')))return;
-  accounts=accounts.filter(function(a){return a.user!==currentUser.user;});
-  await saveAccounts();
+  if(_sbReady&&currentUser.id){
+    try{await _sbClient.from('profiles').delete().eq('id',currentUser.id);}catch(e){}
+  }else{
+    accounts=accounts.filter(function(a){return a.user!==currentUser.user;});
+    await saveAccounts();
+  }
   doLogout();
 }
 function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -2123,13 +2185,29 @@ function buildAdmin(){
 async function changeRole(username,role){
   if(!hasPerm('user_manage')){await customAlert('権限がありません');return;}
   if(currentUser&&username===currentUser.user){await customAlert('自分自身の役職は変更できません');return;}
-  var i=accounts.findIndex(function(a){return a.user===username;});if(i<0)return;
-  accounts[i].role=role;await saveAccounts();var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
+  var acct=accounts.find(function(a){return a.user===username;});if(!acct)return;
+  if(_sbReady&&acct.id){
+    try{
+      var r=await _sbClient.from('profiles').update({role:role}).eq('id',acct.id);
+      if(r.error){await customAlert('変更に失敗しました: '+r.error.message);return;}
+    }catch(e){await customAlert('変更に失敗しました');return;}
+  }else{
+    var i=accounts.findIndex(function(a){return a.user===username;});if(i<0)return;
+    accounts[i].role=role;await saveAccounts();
+  }
+  await loadAccounts();
+  var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
 }
 async function deleteUser(username){
   if(!hasPerm('user_manage')){await customAlert('権限がありません');return;}
   if(!(await customConfirm(username+' を削除しますか？')))return;
-  accounts=accounts.filter(function(a){return a.user!==username;});await saveAccounts();
+  var acct=accounts.find(function(a){return a.user===username;});
+  if(_sbReady&&acct&&acct.id){
+    try{await _sbClient.from('profiles').delete().eq('id',acct.id);}catch(e){}
+  }else{
+    accounts=accounts.filter(function(a){return a.user!==username;});await saveAccounts();
+  }
+  await loadAccounts();
   var wc=document.getElementById('wc-admin');if(wc)wc.innerHTML=buildAdmin();
   if(currentUser&&currentUser.user===username){doLogout();}
 }
